@@ -1,86 +1,119 @@
-// background.js - Service Worker for Manifest V3
+// background.js - Service Worker (Fixed & Optimized)
+
+// ===== INITIALIZATION =====
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('QA AI Assistant installed');
+    console.log('✅ QA Copilot installed');
+
+    // Enable side panel
+    chrome.sidePanel.setOptions({
+        path: 'sidebar.html',
+        enabled: true
+    });
 
     // Initialize default settings
     chrome.storage.sync.set({
         aiProvider: 'OpenAI GPT-4',
-        testComplexity: 'Standard (Happy Path + Edge Cases)',
-        jiraIntegration: true,
-        githubIntegration: true,
-        testRailIntegration: false,
-        slackIntegration: false
+        testComplexity: 'Standard',
+        jiraIntegration: false,
+        githubIntegration: false
     });
 });
 
-// Message handler for content script and popup communication
+// Open side panel on icon click
+chrome.action.onClicked.addListener(async (tab) => {
+    try {
+        await chrome.sidePanel.open({ windowId: tab.windowId });
+        console.log('🧪 Side panel opened');
+    } catch (error) {
+        console.error('Failed to open side panel:', error);
+    }
+});
+
+// ===== MESSAGE HANDLER =====
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('📨 Received message:', request.action);
+
     if (request.action === 'extractPageContent') {
-        const tabId = sender.tab?.id || request.tabId;
-        if (!tabId) {
-            sendResponse({ success: false, error: 'No active tab found. Please open a webpage and try again.' });
-            return;
-        }
-        handlePageExtraction(tabId)
+        handlePageExtraction(request.tabId || sender.tab?.id)
             .then(sendResponse)
-            .catch(err => sendResponse({ error: err.message }));
-        return true;
+            .catch(err => sendResponse({ success: false, error: err.message }));
+        return true; // Keep channel open
     }
 
     if (request.action === 'generateTestCases') {
         generateTestCasesWithAI(request.data)
             .then(sendResponse)
-            .catch(err => sendResponse({ error: err.message }));
+            .catch(err => sendResponse({ success: false, error: err.message }));
         return true;
     }
 
     if (request.action === 'analyzeAccessibility') {
-        const tabId = sender.tab?.id || request.tabId;
-        if (!tabId) {
-            sendResponse({ success: false, error: 'No active tab found. Please open a webpage and try again.' });
-            return;
-        }
-
-        analyzePageAccessibility(tabId)
+        analyzeAccessibility(request.tabId || sender.tab?.id)
             .then(sendResponse)
-            .catch(err => sendResponse({ error: err.message }));
+            .catch(err => sendResponse({ success: false, error: err.message }));
         return true;
     }
 });
 
+// ===== PAGE EXTRACTION =====
 async function handlePageExtraction(tabId) {
+    if (!tabId) {
+        return { success: false, error: 'No tab ID provided' };
+    }
+
     try {
         const results = await chrome.scripting.executeScript({
             target: { tabId: tabId },
             func: extractPageData
         });
 
+        if (!results || !results[0]) {
+            throw new Error('Script execution failed');
+        }
+
         return { success: true, data: results[0].result };
     } catch (error) {
-        console.error('Page extraction failed:', error);
+        console.error('Extraction error:', error);
         return { success: false, error: error.message };
     }
 }
 
-// This function runs in the page context
+// This function runs IN the page context
 function extractPageData() {
     const url = window.location.href;
     const title = document.title || '';
     const selectedText = window.getSelection().toString();
 
-    const inputs = Array.from(document.querySelectorAll('input, select, textarea')).map(el => ({
-        name: el.name || el.id || '',
-        type: el.type || el.tagName.toLowerCase(),
-        placeholder: el.placeholder || '',
-        required: el.required
-    }));
+    // Extract form inputs
+    const inputs = Array.from(document.querySelectorAll('input, select, textarea'))
+        .slice(0, 20) // Limit to first 20
+        .map(el => ({
+            name: el.name || el.id || el.placeholder || 'unnamed',
+            type: el.type || el.tagName.toLowerCase(),
+            placeholder: el.placeholder || '',
+            required: el.required || false
+        }));
 
-    const buttons = Array.from(document.querySelectorAll('button, [type="button"], [type="submit"]')).map(el => el.innerText.trim()).filter(Boolean);
+    // Extract buttons
+    const buttons = Array.from(document.querySelectorAll('button, [type="submit"], [type="button"]'))
+        .slice(0, 10)
+        .map(btn => btn.textContent.trim())
+        .filter(text => text && text.length < 50);
 
-    const links = Array.from(document.querySelectorAll('a')).slice(0, 5).map(a => ({
-        text: a.textContent.trim(),
-        href: a.href
-    }));
+    // Extract links
+    const links = Array.from(document.querySelectorAll('a[href]'))
+        .slice(0, 10)
+        .map(a => ({
+            text: a.textContent.trim().substring(0, 50),
+            href: a.href
+        }))
+        .filter(link => link.text);
+
+    // Extract headings
+    const headings = Array.from(document.querySelectorAll('h1, h2, h3'))
+        .slice(0, 10)
+        .map(h => h.textContent.trim())
+        .filter(text => text);
 
     return {
         pageType: 'GENERIC',
@@ -91,345 +124,312 @@ function extractPageData() {
             inputs,
             buttons,
             links,
-            headings: Array.from(document.querySelectorAll('h1,h2,h3')).map(h => h.textContent).slice(0, 5)
+            headings
         }
     };
 }
+
+// ===== AI TEST GENERATION =====
 async function generateTestCasesWithAI(inputData) {
     try {
-        // 🔹 Load settings and API key from storage
-        const settings = await new Promise(resolve => {
-            chrome.storage.sync.get(['apiKey', 'aiProvider'], resolve);
-        });
+        // Load settings
+        const settings = await chrome.storage.sync.get(['apiKey', 'aiProvider']);
 
-        const apiKey = settings?.apiKey?.trim();
-        const provider = (settings?.aiProvider && settings.aiProvider.trim() !== '')
-            ? settings.aiProvider
-            : 'OpenAI GPT-4';
-
-
+        const apiKey = settings.apiKey?.trim();
         if (!apiKey) {
-            return {
-                success: false,
-                error: 'API key not configured. Please set it in Settings tab.'
-            };
+            throw new Error('API key not configured. Please set it in Settings.');
         }
 
-        const prompt = buildTestCasePrompt(inputData);
+        const provider = settings.aiProvider || 'OpenAI GPT-4';
+        const prompt = buildPrompt(inputData);
 
-        let apiUrl = '';
-        let headers = {};
-        let body = {};
+        let response;
 
-        // 🔹 Route based on selected AI provider
         if (provider.includes('OpenAI')) {
-            apiUrl = 'https://api.openai.com/v1/chat/completions';
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            };
-            body = {
-                model: 'gpt-4o',
-                messages: [
-                    {
-                        role: 'system',
-                        content:
-                            'You are an expert QA engineer. Generate comprehensive test cases with clear steps, expected results, and cover positive, negative, edge cases, and security scenarios.'
-                    },
-                    { role: 'user', content: prompt }
-                ],
-                max_tokens: 2000,
-                temperature: 0.7
-            };
+            response = await callOpenAI(apiKey, prompt);
         } else if (provider.includes('Gemini')) {
-            // ✅ Google Gemini 2.5 Flash Free Tier endpoint (v1)
-            apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-            headers = { 'Content-Type': 'application/json' };
-
-            body = {
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [
-                            {
-                                text:
-                                    `You are a senior QA engineer.
-
-Generate comprehensive functional, negative, edge-case, and security test cases in markdown format for the following feature:
-
-${prompt}`
-                            }
-                        ]
-                    }
-                ],
-                generationConfig: {
-                    temperature: 0.4,
-                    maxOutputTokens: 1200
-                }
-            };
+            response = await callGemini(apiKey, prompt);
         } else {
-            throw new Error(`Unsupported AI provider: ${provider}`);
+            throw new Error('Unsupported AI provider: ' + provider);
         }
 
-        console.log(`Calling ${provider} API...`);
+        return { success: true, testCases: response };
 
-        // 🔹 Perform the API call
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error(`${provider} API error:`, errorData);
-            const errMsg =
-                errorData.error?.message ||
-                errorData.error?.code ||
-                `Request failed with status ${response.status}`;
-            throw new Error(errMsg);
-        }
-
-        const data = await response.json();
-        let aiText = '';
-
-        // 🔹 Parse different provider responses
-        if (provider.includes('OpenAI')) {
-            aiText = data.choices?.[0]?.message?.content || '';
-        } else if (provider.includes('Gemini')) {
-            aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        }
-
-        if (!aiText.trim()) {
-            throw new Error('Empty response from AI provider.');
-        }
-
-        return {
-            success: true,
-            testCases: aiText.trim()
-        };
     } catch (error) {
         console.error('AI generation failed:', error);
 
-        // 🔹 Handle quota errors gracefully
-        if (error.message?.toLowerCase().includes('quota')) {
-            return {
-                success: true,
-                testCases: generateFallbackTestCases(inputData),
-                fallback: true
-            };
-        }
-
-        // 🔹 Generic fallback
+        // Fallback to rule-based generation
         return {
             success: true,
-            testCases: generateFallbackTestCases(inputData),
+            testCases: generateFallbackTests(inputData),
             fallback: true,
             error: error.message
         };
     }
 }
 
+async function callOpenAI(apiKey, prompt) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model: 'gpt-4',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are an expert QA engineer. Generate comprehensive, well-structured test cases.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7
+        })
+    });
 
-function buildTestCasePrompt(inputData) {
-    return `Generate comprehensive QA test cases for this feature:
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
+
+async function callGemini(apiKey, prompt) {
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{
+                role: 'user',
+                parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+                temperature: 0.4,
+                maxOutputTokens: 1500
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+function buildPrompt(inputData) {
+    return `Generate comprehensive test cases for this feature:
 
 Feature: ${inputData.featureText}
 Test Type: ${inputData.testType}
 Risk Level: ${inputData.riskLevel}
 
-Please include:
-1. 3-5 Positive test cases (happy path)
+Include:
+1. 3-5 Positive test cases (happy path scenarios)
 2. 3-5 Negative test cases (error handling)
-3. 2-3 Edge cases
+3. 2-3 Edge cases (boundary conditions)
 4. Security considerations
-5. Performance considerations (if applicable)
+5. Performance notes (if applicable)
 
-Format each test case with:
-- Test Case ID
-- Title
-- Preconditions
-- Steps (numbered)
-- Expected Result
-- Priority (P0-P2)`;
+Format each test case:
+- Test ID: TC-XXX
+- Title: Clear, descriptive title
+- Priority: P0/P1/P2
+- Preconditions: What must be true before test
+- Steps: Numbered, specific actions
+- Expected Result: Clear success criteria`;
 }
 
-function generateFallbackTestCases(inputData) {
-    const feature = inputData.featureText;
-    const testType = inputData.testType;
-    const riskLevel = inputData.riskLevel;
+function generateFallbackTests(inputData) {
+    const { featureText, testType, riskLevel } = inputData;
 
-    return `🧪 TEST CASES FOR: ${feature}
+    return `🧪 TEST CASES FOR: ${featureText}
 
 Test Type: ${testType} | Risk Level: ${riskLevel}
 
-✅ POSITIVE TEST CASES:
+✅ POSITIVE TESTS
 
-TC-001: Basic Functionality Verification
+TC-001: Basic Functionality
 Priority: P0
-Preconditions: System is accessible and user is logged in
+Preconditions: Application is accessible
 Steps:
-1. Navigate to the feature page
-2. Verify all UI elements are displayed correctly
+1. Navigate to the feature
+2. Verify all UI elements are visible
 3. Execute the primary action
-4. Observe the response/output
-Expected Result: Feature works as intended without errors
+4. Verify expected outcome
+Expected: Feature works as designed
 
-TC-002: Valid Input Scenarios
+TC-002: Valid Input Handling
 Priority: P0
-Preconditions: Feature is accessible
 Steps:
-1. Enter valid data in all required fields
-2. Submit the form/request
-3. Verify success message appears
-4. Verify data is saved/processed correctly
-Expected Result: System accepts and processes valid inputs successfully
+1. Enter valid data in all fields
+2. Submit the form/action
+3. Verify success message
+4. Confirm data is processed
+Expected: System accepts valid inputs
 
-TC-003: Multiple Operations Flow
+TC-003: Sequential Operations
 Priority: P1
 Steps:
-1. Perform operation A
-2. Verify result A
-3. Perform operation B
-4. Verify result B and integration with A
-Expected Result: Sequential operations work correctly
+1. Complete operation A successfully
+2. Verify state change
+3. Complete operation B
+4. Verify operations integrate correctly
+Expected: Multi-step workflows succeed
 
-❌ NEGATIVE TEST CASES:
+❌ NEGATIVE TESTS
 
 TC-004: Invalid Input Handling
 Priority: P0
 Steps:
 1. Enter invalid/malformed data
-2. Attempt to submit
-3. Observe error handling
-Expected Result: Clear error message displayed, no system crash
+2. Attempt submission
+3. Verify error handling
+Expected: Clear error messages, no crash
 
-TC-005: Missing Required Fields
+TC-005: Required Field Validation
 Priority: P0
 Steps:
 1. Leave required fields empty
 2. Attempt submission
-3. Verify validation messages
-Expected Result: Appropriate validation errors for all missing fields
+3. Check validation messages
+Expected: All required fields flagged
 
-TC-006: Unauthorized Access Attempt
+TC-006: Unauthorized Access
 Priority: P1
 Steps:
-1. Logout or use unauthorized account
-2. Attempt to access the feature
+1. Logout or use restricted account
+2. Attempt to access feature
 3. Verify access control
-Expected Result: Access denied with appropriate message
+Expected: Access denied appropriately
 
-🔍 EDGE CASES:
+🔍 EDGE CASES
 
-TC-007: Boundary Value Testing
+TC-007: Boundary Values
 Priority: P1
 Steps:
 1. Test minimum acceptable value
-2. Test maximum acceptable value  
-3. Test value just below minimum
-4. Test value just above maximum
-Expected Result: Proper handling at boundaries, validation for out-of-range
+2. Test maximum acceptable value
+3. Test min-1 and max+1
+Expected: Proper boundary validation
 
-TC-008: Special Characters and Unicode
+TC-008: Special Characters
 Priority: P2
 Steps:
-1. Input special characters (!@#$%^&*)
-2. Input unicode characters (中文, عربي, 日本語)
-3. Verify proper encoding/display
-Expected Result: System handles all character types correctly
+1. Input special chars: !@#$%^&*
+2. Input unicode: 中文, عربي
+3. Verify handling
+Expected: All characters processed safely
 
-🔒 SECURITY TEST CASES:
+🔒 SECURITY CHECKS
 
 TC-009: Input Sanitization
-Priority: P0 (if ${riskLevel} is HIGH/CRITICAL)
+Priority: P0 (if risk is HIGH)
 Steps:
-1. Attempt SQL injection: ' OR '1'='1
-2. Attempt XSS: <script>alert('test')</script>
-3. Verify input is sanitized
-Expected Result: No code execution, inputs are escaped/sanitized
+1. Attempt SQL injection
+2. Attempt XSS attack
+3. Verify inputs are sanitized
+Expected: No code execution
 
-TC-010: Session Management
+TC-010: Session Security
 Priority: P1
 Steps:
-1. Login and note session token
+1. Login and capture session
 2. Logout
-3. Attempt to reuse old session token
-Expected Result: Session invalidated, access denied
+3. Try to reuse old session
+Expected: Session invalidated
 
-⚡ PERFORMANCE CONSIDERATIONS:
-- Response time should be < 2 seconds for ${testType} operations
-- System should handle concurrent users (if applicable)
-- No memory leaks during extended usage
+⚡ PERFORMANCE NOTES
+- Response time target: < 2 seconds
+- Handle concurrent users gracefully
+- No memory leaks during extended use
 
-📱 COMPATIBILITY:
+📱 COMPATIBILITY
 - Test on Chrome, Firefox, Safari, Edge
-- Test on mobile devices (iOS, Android)
-- Verify responsive design
+- Mobile: iOS Safari, Chrome Android
+- Responsive design validation
 
-Total Test Cases: 10
-Estimated Execution Time: ${estimateTestTime(riskLevel)}
-Coverage: Functional, Security, Edge Cases, Performance`;
+Total: 10 test cases
+Est. Time: ${riskLevel === 'High' || riskLevel === 'Critical' ? '3-4 hours' : '1-2 hours'}`;
 }
 
-function estimateTestTime(riskLevel) {
-    const times = {
-        'Low': '30 minutes',
-        'Medium': '1 hour',
-        'High': '2-3 hours',
-        'Critical': '4+ hours'
-    };
-    return times[riskLevel] || '1-2 hours';
-}
+// ===== ACCESSIBILITY ANALYSIS =====
+async function analyzeAccessibility(tabId) {
+    if (!tabId) {
+        return { success: false, error: 'No tab ID provided' };
+    }
 
-async function analyzePageAccessibility(tabId) {
     try {
-        // Inject axe-core accessibility testing library
-        await chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ['lib/axe.min.js']
-        });
-
-        // Run accessibility scan
+        // Basic accessibility check without axe-core
         const results = await chrome.scripting.executeScript({
             target: { tabId: tabId },
-            func: runAccessibilityScan
+            func: runBasicA11yCheck
         });
 
         return { success: true, results: results[0].result };
     } catch (error) {
-        console.error('Accessibility analysis failed:', error);
+        console.error('A11y analysis failed:', error);
         return { success: false, error: error.message };
     }
 }
 
-function runAccessibilityScan() {
-    // This runs in page context after axe-core is loaded
-    return new Promise((resolve) => {
-        if (typeof axe === 'undefined') {
-            resolve({ error: 'Axe-core not loaded' });
-            return;
-        }
+function runBasicA11yCheck() {
+    const issues = [];
 
-        axe.run(document, (err, results) => {
-            if (err) {
-                resolve({ error: err.message });
-                return;
-            }
-
-            resolve({
-                violations: results.violations.length,
-                passes: results.passes.length,
-                incomplete: results.incomplete.length,
-                details: results.violations.map(v => ({
-                    id: v.id,
-                    impact: v.impact,
-                    description: v.description,
-                    help: v.help,
-                    helpUrl: v.helpUrl,
-                    nodes: v.nodes.length
-                }))
-            });
+    // Check images without alt
+    const imagesWithoutAlt = document.querySelectorAll('img:not([alt])');
+    if (imagesWithoutAlt.length > 0) {
+        issues.push({
+            type: 'Missing Alt Text',
+            count: imagesWithoutAlt.length,
+            impact: 'High',
+            description: 'Images found without alt attributes'
         });
+    }
+
+    // Check form inputs without labels
+    const inputsWithoutLabels = Array.from(document.querySelectorAll('input')).filter(input => {
+        const id = input.id;
+        return !id || !document.querySelector(`label[for="${id}"]`);
     });
+
+    if (inputsWithoutLabels.length > 0) {
+        issues.push({
+            type: 'Missing Form Labels',
+            count: inputsWithoutLabels.length,
+            impact: 'Medium',
+            description: 'Form inputs without associated labels'
+        });
+    }
+
+    // Check buttons without text
+    const emptyButtons = Array.from(document.querySelectorAll('button')).filter(btn => {
+        return !btn.textContent.trim() && !btn.getAttribute('aria-label');
+    });
+
+    if (emptyButtons.length > 0) {
+        issues.push({
+            type: 'Empty Buttons',
+            count: emptyButtons.length,
+            impact: 'High',
+            description: 'Buttons without text or aria-label'
+        });
+    }
+
+    return {
+        totalIssues: issues.length,
+        issues: issues,
+        summary: issues.length === 0 ? 'No major issues found' : `Found ${issues.length} accessibility issues`
+    };
 }
