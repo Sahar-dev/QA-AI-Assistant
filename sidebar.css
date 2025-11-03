@@ -1,0 +1,162 @@
+:root {
+    --primary: #7c3aed;
+    --accent: #4cc9f0;
+    --bg: #0b0b10;
+    --panel: rgba(25, 25, 35, 0.8);
+    --text: #e5e7eb;
+    --border: rgba(255, 255, 255, 0.08);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    background: radial-gradient(circle at top right, #1f1f2e, #0b0b10);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+}
+
+.copilot-container {
+    display: flex;
+    width: 100%;
+    backdrop-filter: blur(20px);
+}
+
+/* Sidebar */
+.nav {
+    width: 220px;
+    background: rgba(18, 18, 25, 0.85);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.nav h1 {
+    color: var(--accent);
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.nav button {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    padding: 12px;
+    text-align: left;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.nav button.active,
+.nav button:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateX(4px);
+}
+
+/* Main Panel */
+.main {
+    flex: 1;
+    padding: 25px;
+    overflow-y: auto;
+}
+
+.panel {
+    display: none;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: fadeIn 0.4s ease-out;
+}
+
+.panel.active {
+    display: block;
+}
+
+h2 {
+    margin-top: 0;
+    color: var(--accent);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+textarea,
+input,
+select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    width: 100%;
+}
+
+textarea:focus,
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+}
+
+.btn-row,
+.toolbar {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+button {
+    border: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: 0.2s;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+button:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+button.primary {
+    background: var(--primary);
+}
+
+button.primary:hover {
+    background: #9f51ff;
+}
+
+.output {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: pre-wrap;
+    color: #d1d5db;
+    min-height: 150px;
+}
+
+/* Smooth fade animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
