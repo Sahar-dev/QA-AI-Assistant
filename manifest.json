@@ -7,7 +7,14 @@
         "sidePanel",
         "activeTab",
         "storage",
-        "scripting"
+        "scripting",
+        "tabs",
+        "webNavigation",
+        "identity",
+        "background",
+        "contextMenus",
+        "notifications",
+        "webRequest"
     ],
     "host_permissions": [
         "https://api.openai.com/*",
@@ -41,10 +48,11 @@
                 "<all_urls>"
             ],
             "js": [
+                "recording/recorder.js",
                 "content.js"
             ],
             "all_frames": true,
-            "run_at": "document_idle"
+            "run_at": "document_start"
         }
     ],
     "icons": {
