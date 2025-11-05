@@ -433,3 +433,43 @@ function runBasicA11yCheck() {
         summary: issues.length === 0 ? 'No major issues found' : `Found ${issues.length} accessibility issues`
     };
 }
+// ===== background.js =====
+const SESSION_WINDOW_MS = 5 * 60 * 1000;
+const sessionBuffers = new Map();
+let lastActivePageTab = null; // 🆕 keep track of last page that sent events
+
+function pushSessionEvent(tabId, evt) {
+    if (!tabId) return;
+    lastActivePageTab = tabId; // 🧠 remember last page tab
+    const now = Date.now();
+    const arr = sessionBuffers.get(tabId) || [];
+    arr.push({ ...evt, t: now });
+    const cutoff = now - SESSION_WINDOW_MS;
+    while (arr.length && arr[0].t < cutoff) arr.shift();
+    sessionBuffers.set(tabId, arr);
+}
+
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+    console.log("📩 [Background] Message:", req.action, "from tab", sender?.tab?.id);
+
+    if (req.action === "recordEvent") {
+        const tabId = sender?.tab?.id || req.tabId;
+        pushSessionEvent(tabId, req.payload);
+        return; // fire-and-forget
+    }
+
+    if (req.action === "exportSession") {
+        // pick best tab candidate
+        let tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
+        if (!tabId) {
+            const keys = Array.from(sessionBuffers.keys());
+            tabId = keys[keys.length - 1];
+            console.log("⚙️ [Background] ultimate fallback to", tabId);
+        }
+
+        const data = sessionBuffers.get(tabId) || [];
+        console.log("📤 [Background] Sending", data.length, "events for tab", tabId);
+        sendResponse({ success: true, data, length: data.length });
+        return true; // async
+    }
+});

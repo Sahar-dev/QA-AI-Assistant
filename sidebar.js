@@ -1,37 +1,99 @@
-// sidebar.js - Unified & Bug-Free Implementation
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('✅ QA Copilot initialized');
-    initApp();
+// sidebar.js - Clean, stable version (no duplicate imports / intervals)
+console.log('✅ QA Copilot loaded');
+
+window.addEventListener('DOMContentLoaded', async () => {
+    console.log('⚙️ Initializing QA Copilot UI...');
+    await initApp();
 });
 
-function initApp() {
+async function initApp() {
     setupNavigation();
-    setupTestGeneration();
-    setupAnalysis();
-    setupTestData();
-    setupExport();
-    setupSettings();
-    loadSettings();
+    setupTestGeneration?.();
+    setupAnalysis?.();
+    setupTestData?.();
+    setupExport?.();
+    setupSettings?.();
+    setupTimeline();
+    loadSettings?.();
+}
+
+// ===== TIMELINE TAB =====
+function setupTimeline() {
+    const container = document.getElementById('timeline-container');
+
+    // Lazy import (so module loads only when needed)
+    async function getTimelineModule() {
+        if (!window._timelineModule) {
+            const url = chrome.runtime.getURL('recording/timeline-view.js');
+            window._timelineModule = await import(url);
+        }
+        return window._timelineModule;
+    }
+
+    // Manual refresh button
+    document.getElementById('refresh-timeline')?.addEventListener('click', async () => {
+        const mod = await getTimelineModule();
+        mod.renderTimeline(container);
+    });
+
+    // Auto-refresh every 10 seconds when timeline is active
+    setInterval(async () => {
+        const tabPane = document.getElementById('timeline');
+        if (tabPane?.classList.contains('active')) {
+            const mod = await getTimelineModule();
+            mod.renderTimeline(container);
+        }
+    }, 10000);
+
+    // 🐛 Report Bug button
+    document.getElementById('report-bug-btn')?.addEventListener('click', async () => {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const res = await chrome.runtime.sendMessage({ action: 'exportSession', tabId: tab.id });
+        const events = res?.data || [];
+
+        const bugData = {
+            page: tab.url,
+            capturedAt: new Date().toISOString(),
+            recentErrors: events.filter(e => e.type.includes('error')),
+            recentNetwork: events.filter(e => ['fetch', 'xhr', 'fetch_error'].includes(e.type)),
+            lastActions: events.slice(-10)
+        };
+
+        const md = `### 🐛 Bug Report
+**Page:** ${bugData.page}  
+**Captured:** ${bugData.capturedAt}
+
+#### 🔴 Recent Errors
+\`\`\`json
+${JSON.stringify(bugData.recentErrors, null, 2)}
+\`\`\`
+
+#### 🌐 Network Requests
+\`\`\`json
+${JSON.stringify(bugData.recentNetwork, null, 2)}
+\`\`\`
+
+#### 🪄 Last User Actions
+\`\`\`json
+${JSON.stringify(bugData.lastActions, null, 2)}
+\`\`\``;
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bug-report-${Date.now()}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showToast?.('Bug report exported', 'success');
+    });
 }
 
 // ===== NAVIGATION =====
 function setupNavigation() {
     const navBtns = document.querySelectorAll('.nav-btn');
     const tabs = document.querySelectorAll('.tab-pane');
-
-    // Restore last tab
-    chrome.storage.local.get('activeTab', (data) => {
-        const lastTab = data.activeTab || 'test-cases';
-        switchTab(lastTab);
-    });
-
-    navBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.dataset.tab;
-            switchTab(tabId);
-            chrome.storage.local.set({ activeTab: tabId });
-        });
-    });
 
     function switchTab(tabId) {
         tabs.forEach(t => t.classList.remove('active'));
@@ -40,100 +102,39 @@ function setupNavigation() {
         document.getElementById(tabId)?.classList.add('active');
         document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
 
-        // Update header title
         const titles = {
             'test-cases': 'Test Case Generator',
             'analyze': 'Page Analyzer',
             'test-data': 'Test Data Generator',
             'accessibility': 'Accessibility Audit',
             'export': 'Export Tests',
+            'timeline': 'Session Timeline',
             'settings': 'Settings'
         };
         document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
-    }
-}
 
-// ===== TEST GENERATION =====
-function setupTestGeneration() {
-    const generateBtn = document.getElementById('generate-btn');
-    const extractBtn = document.getElementById('extract-btn');
-    const copyBtn = document.getElementById('copy-tests-btn');
-
-    generateBtn.addEventListener('click', handleGenerateTests);
-    extractBtn.addEventListener('click', handleExtractFromPage);
-    copyBtn.addEventListener('click', () => copyToClipboard('test-output'));
-}
-
-async function handleGenerateTests() {
-    const featureText = document.getElementById('feature-input').value.trim();
-    const testType = document.getElementById('test-type').value;
-    const riskLevel = document.getElementById('risk-level').value;
-    const output = document.getElementById('test-output');
-
-    if (!featureText) {
-        showToast('Please enter a feature description', 'error');
-        return;
-    }
-
-    output.innerHTML = '<div class="loading"><div class="spinner"></div> Generating test cases...</div>';
-
-    try {
-        const response = await chrome.runtime.sendMessage({
-            action: 'generateTestCases',
-            data: { featureText, testType, riskLevel }
-        });
-
-        if (response?.success) {
-            output.textContent = response.testCases;
-            showToast('Test cases generated!', 'success');
-        } else {
-            output.innerHTML = `<div style="color: #ef4444;">❌ ${response?.error || 'Generation failed'}</div>`;
-            showToast(response?.error || 'Generation failed', 'error');
+        // Lazy-load and render timeline automatically when opened
+        if (tabId === 'timeline') {
+            const url = chrome.runtime.getURL('recording/timeline-view.js');
+            import(url).then(mod => {
+                mod.renderTimeline(document.getElementById('timeline-container'));
+            });
         }
-    } catch (error) {
-        output.innerHTML = `<div style="color: #ef4444;">❌ Error: ${error.message}</div>`;
-        showToast('Error: ' + error.message, 'error');
     }
-}
 
-async function handleExtractFromPage() {
-    const input = document.getElementById('feature-input');
-    input.value = 'Extracting page content...';
+    // Restore last active tab
+    chrome.storage.local.get('activeTab', (data) => {
+        switchTab(data.activeTab || 'test-cases');
+    });
 
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        const response = await chrome.runtime.sendMessage({
-            action: 'extractPageContent',
-            tabId: tab.id
+    // Click listeners
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            switchTab(tabId);
+            chrome.storage.local.set({ activeTab: tabId });
         });
-
-        if (response?.success) {
-            const data = response.data?.data || {};
-            let extracted = '';
-
-            if (data.title) extracted += `Page: ${data.title}\n\n`;
-            if (data.url) extracted += `URL: ${data.url}\n\n`;
-            if (data.inputs?.length > 0) {
-                extracted += `Form Fields:\n${data.inputs.map(i => `- ${i.name || i.type}`).join('\n')}\n\n`;
-            }
-            if (data.buttons?.length > 0) {
-                extracted += `Buttons: ${data.buttons.join(', ')}\n\n`;
-            }
-            if (data.headings?.length > 0) {
-                extracted += `Headings:\n${data.headings.join('\n')}`;
-            }
-
-            input.value = extracted || 'No content could be extracted';
-            showToast('Content extracted!', 'success');
-        } else {
-            input.value = 'Error: ' + (response?.error || 'Extraction failed');
-            showToast(response?.error || 'Extraction failed', 'error');
-        }
-    } catch (error) {
-        input.value = 'Error: ' + error.message;
-        showToast('Error: ' + error.message, 'error');
-    }
+    });
 }
 
 // ===== ANALYSIS =====

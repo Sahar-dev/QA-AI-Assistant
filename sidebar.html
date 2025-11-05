@@ -554,6 +554,8 @@
         <!-- Compact Sidebar -->
         <div class="sidebar">
             <button class="nav-btn active" data-tab="test-cases" data-tooltip="Test Cases">📝</button>
+            <button class="nav-btn" data-tab="timeline">🕒</button>
+
             <button class="nav-btn" data-tab="analyze" data-tooltip="Analyze Page">🔍</button>
             <button class="nav-btn" data-tab="test-data" data-tooltip="Test Data">📊</button>
             <button class="nav-btn" data-tab="accessibility" data-tooltip="Accessibility">♿</button>
@@ -566,6 +568,7 @@
             <div class="header">
                 <h1 id="header-title">Test Case Generator</h1>
                 <div class="header-actions">
+                    <button class="icon-btn" id="save-session-btn" title="Save last 5 minutes">💾</button>
                     <button class="icon-btn" id="refresh-btn" title="Refresh">🔄</button>
                     <button class="icon-btn" id="help-btn" title="Help">❓</button>
                 </div>
@@ -693,6 +696,25 @@ Example: Login form with email/password validation"></textarea>
                     </div>
                 </div>
 
+                <!-- Timeline Tab -->
+                <div class="tab-pane" id="timeline">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Session Timeline</div>
+                        </div>
+
+                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                            Displays the last 5 minutes of recorded user actions, API calls, and console logs.
+                        </p>
+
+                        <div id="timeline-container" class="timeline-list"></div>
+
+                        <div style="margin-top: 10px; display: flex; gap: 8px;">
+                            <button id="refresh-timeline" class="btn btn-secondary btn-full">🔄 Refresh</button>
+                            <button id="report-bug-btn" class="btn btn-danger btn-full">🐛 Report Bug</button>
+                        </div>
+                    </div>
+                </div>
                 <!-- Accessibility Tab -->
                 <div class="tab-pane" id="accessibility">
                     <div class="card">
