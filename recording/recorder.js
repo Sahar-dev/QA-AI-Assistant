@@ -140,7 +140,39 @@
             });
         }
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    function startObserver() {
+        if (!document.body) {
+            console.warn("[QA Copilot] Waiting for document.body...");
+            return setTimeout(startObserver, 500); // retry every 500ms
+        }
+
+        const observer = new MutationObserver(mutations => {
+            for (const m of mutations) {
+                if (m.addedNodes) {
+                    m.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) {
+                            const text = node.textContent || "";
+                            if (/invalid|error|failed|unauthorized/i.test(text)) {
+                                chrome.runtime.sendMessage({
+                                    action: "recordEvent",
+                                    payload: {
+                                        type: "ui_error",
+                                        data: { message: text.trim().slice(0, 200) }
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        console.log("👀 QA Copilot DOM observer active");
+    }
+
+    startObserver();
+
 
 })();
 
