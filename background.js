@@ -433,10 +433,10 @@ function runBasicA11yCheck() {
         summary: issues.length === 0 ? 'No major issues found' : `Found ${issues.length} accessibility issues`
     };
 }
+
 const SESSION_WINDOW_MS = 5 * 60 * 1000;
 const sessionBuffers = new Map();
 let lastActivePageTab = null;
-
 let isRecording = false;
 let recordedEvents = [];
 
@@ -451,56 +451,116 @@ function pushSessionEvent(tabId, evt) {
     while (arr.length && arr[0].t < cutoff) arr.shift();
     sessionBuffers.set(tabId, arr);
 
-    // if manual recording is on, also push there
     if (isRecording) {
         recordedEvents.push({ ...evt, t: now });
     }
 }
 
-chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+function generateTestFromEvents(framework, events) {
+    if (!events?.length) return "// No recorded events found.";
+
+    const lines = [];
+    switch (framework) {
+        case "cypress":
+            lines.push("describe('Recorded Test', () => {");
+            lines.push("  it('should replay recorded actions', () => {");
+            events.forEach(ev => {
+                if (ev.type === "click" && ev.data.selector)
+                    lines.push(`    cy.get('${ev.data.selector}').click();`);
+                else if (ev.type === "input" && ev.data.selector)
+                    lines.push(`    cy.get('${ev.data.selector}').type('${ev.data.value}');`);
+            });
+            lines.push("  });");
+            lines.push("});");
+            break;
+        case "playwright":
+            lines.push("import { test, expect } from '@playwright/test';");
+            lines.push("test('Recorded Test', async ({ page }) => {");
+            for (const ev of events) {
+                if (ev.type === "click" && ev.data.selector)
+                    lines.push(`  await page.click('${ev.data.selector}');`);
+                else if (ev.type === "input" && ev.data.selector)
+                    lines.push(`  await page.fill('${ev.data.selector}', '${ev.data.value}');`);
+            }
+            lines.push("});");
+            break;
+        default:
+            lines.push("// Framework not supported yet.");
+    }
+    return lines.join("\n");
+}
+
+// === Message Handlers ===
+chrome.runtime.onMessage.addListener(async (req, sender, sendResponse) => {
     console.log("📩 [Background] Message:", req.action, "from tab", sender?.tab?.id);
 
-    // --- (1) Standard Event Recording ---
     if (req.action === "recordEvent") {
-        const tabId = sender?.tab?.id || req.tabId;
-        pushSessionEvent(tabId, req.payload);
-        return; // no async
+        pushSessionEvent(sender?.tab?.id || req.tabId, req.payload);
+        return;
     }
 
-    // --- (2) Export Timeline Session ---
-    if (req.action === "exportSession") {
-        let tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
-        if (!tabId) {
-            const keys = Array.from(sessionBuffers.keys());
-            tabId = keys[keys.length - 1];
-            console.log("⚙️ [Background] fallback tab:", tabId);
-        }
-        const data = sessionBuffers.get(tabId) || [];
-        console.log("📤 [Background] Exporting", data.length, "events for tab", tabId);
-        sendResponse({ success: true, data, length: data.length });
-        return true;
-    }
-
-    // --- (3) Manual Recording Controls ---
     if (req.action === "startRecordingSession") {
         console.log("🎬 Manual recording started");
         isRecording = true;
         recordedEvents = [];
+        recordedEvents.metadata = req.metadata || {}; // 🧠 store name & desc
         sendResponse({ success: true });
         return true;
     }
+
     if (req.action === "getRecordingState") {
-        sendResponse({
-            success: true,
-            eventCount: recordedEvents.length,
-            isRecording
-        });
+        sendResponse({ success: true, eventCount: recordedEvents.length, isRecording });
         return true;
     }
+
     if (req.action === "stopRecordingSession") {
         console.log("🛑 Manual recording stopped, total:", recordedEvents.length);
         isRecording = false;
         sendResponse({ success: true, data: recordedEvents });
+        return true;
+    }
+
+    if (req.action === "generateAutomatedTest") {
+        console.log("🧠 Generating test code for framework:", req.framework);
+
+        (async () => {
+            try {
+                const code = generateTestFromEvents(req.framework, recordedEvents);
+
+                // Save to local storage
+                const data = await chrome.storage.local.get("savedTests");
+                const existing = data.savedTests || [];
+
+                const testData = {
+                    id: Date.now(),
+                    framework: req.framework,
+                    createdAt: new Date().toISOString(),
+                    eventCount: recordedEvents.length,
+                    code,
+                    testName: recordedEvents?.metadata?.testName || "Untitled Test",
+                    testDescription: recordedEvents?.metadata?.testDescription || ""
+                };
+
+                existing.push(testData);
+                await chrome.storage.local.set({ savedTests: existing });
+
+                console.log("✅ Code generation complete, saved:", req.framework);
+                sendResponse({ success: true, code });
+            } catch (err) {
+                console.error("❌ Code generation failed:", err);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+
+        // tell Chrome this is async
+        return true;
+    }
+
+
+    if (req.action === "exportSession") {
+        const tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
+        const data = sessionBuffers.get(tabId) || [];
+        sendResponse({ success: true, data });
         return true;
     }
 

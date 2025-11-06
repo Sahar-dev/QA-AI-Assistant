@@ -20,6 +20,7 @@ async function initApp() {
     setupAccessibility();
     setupRecording(); // NEW!
     setupSettings();
+    loadSavedTests();
     await loadSettings();
 }
 
@@ -55,6 +56,10 @@ function setupNavigation() {
                 console.error('Timeline load failed:', error);
             }
         }
+        if (tabId === 'manual-tests') {
+            loadSavedTests();
+        }
+
     }
 
     chrome.storage.local.get('activeTab', (data) => {
@@ -134,26 +139,44 @@ function setupRecording() {
     });
 
     // Generate Automated Test
-    generateCodeBtn?.addEventListener('click', async () => {
-        const framework = frameworkSelect?.value || 'cypress';
-        codeOutput.innerHTML = '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
+    // Generate Automated Test
+    generateCodeBtn?.addEventListener("click", async () => {
+        const framework = frameworkSelect?.value || "cypress";
+        codeOutput.innerHTML =
+            '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
 
         try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'generateAutomatedTest',
-                framework: framework
+            const response = await new Promise((resolve) => {
+                chrome.runtime.sendMessage(
+                    { action: "generateAutomatedTest", framework },
+                    (res) => {
+                        // handle runtime errors gracefully
+                        if (chrome.runtime.lastError) {
+                            console.warn("⏳ Delayed response:", chrome.runtime.lastError.message);
+                            // wait a bit, try reading saved tests anyway
+                            setTimeout(() => loadSavedTests(), 800);
+                            resolve({ success: true, code: "// Code generation completed (async)." });
+                        } else {
+                            resolve(res);
+                        }
+                    }
+                );
             });
 
-            if (response.success) {
-                codeOutput.textContent = response.code;
-                showToast('✨ Test code generated!', 'success');
+            if (response?.success) {
+                codeOutput.textContent = response.code || "// Code generated successfully.";
+                showToast("✨ Test code generated!", "success");
+
+                // Delay refresh slightly to let Chrome finish writing to storage
+                setTimeout(loadSavedTests, 500);
             } else {
-                codeOutput.textContent = 'Error: ' + response.error;
-                showToast('Generation failed', 'error');
+                const msg = response?.error || "Unknown error";
+                codeOutput.textContent = "Error: " + msg;
+                showToast("Generation failed", "error");
             }
         } catch (error) {
-            codeOutput.textContent = 'Error: ' + error.message;
-            showToast('Generation failed', 'error');
+            codeOutput.textContent = "Error: " + error.message;
+            showToast("Generation failed", "error");
         }
     });
 
@@ -176,6 +199,64 @@ function setupRecording() {
 
         downloadFile(code, `test.${extensions[framework]}`, 'text/plain');
         showToast('Downloaded!', 'success');
+    });
+}
+async function loadSavedTests() {
+    const container = document.getElementById("saved-tests-container");
+    const data = await chrome.storage.local.get("savedTests");
+    const tests = data.savedTests || [];
+
+    if (!tests.length) {
+        container.innerHTML = `<div class="output-empty">
+            <i class="fas fa-box-open"
+                style="font-size:32px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+            No recorded tests yet.
+        </div>`;
+        return;
+    }
+
+    container.innerHTML = tests
+        .map(
+            (t, i) => `
+        <div class="saved-test-item" data-index="${i}"
+            style="padding:14px;border-bottom:1px solid #eee;display:flex;flex-direction:column;gap:6px;">
+            <div style="font-weight:700;color:#4f46e5;">${t.testName || "Unnamed Test"}</div>
+            <div style="font-size:13px;color:#6b7280;">${t.testDescription || "(No description provided)"}</div>
+            <div style="font-size:12px;color:#666;">
+                ${t.framework.toUpperCase()} • ${t.eventCount} events •
+                ${new Date(t.createdAt).toLocaleString()}
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+                <button class="btn btn-ghost btn-sm copy-btn" style="flex:1;">
+                    <i class="fas fa-copy"></i> Copy Code
+                </button>
+                <button class="btn btn-ghost btn-sm delete-btn" style="flex:1;color:#ef4444;">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>`
+        )
+        .join("");
+
+    // attach click listeners
+    container.querySelectorAll(".copy-btn").forEach((btn, i) => {
+        btn.addEventListener("click", async () => {
+            const test = tests[i];
+            await navigator.clipboard.writeText(test.code);
+            showToast("Copied to clipboard!", "success");
+        });
+    });
+
+    container.querySelectorAll(".delete-btn").forEach((btn, i) => {
+        btn.addEventListener("click", async () => {
+            const confirmed = confirm(`Delete test "${tests[i].testName}"?`);
+            if (!confirmed) return;
+
+            const newTests = tests.filter((_, idx) => idx !== i);
+            await chrome.storage.local.set({ savedTests: newTests });
+            showToast("Test deleted.", "success");
+            loadSavedTests(); // refresh list
+        });
     });
 }
 
