@@ -1,30 +1,135 @@
-// sidebar.js - Clean, stable version (no duplicate imports / intervals)
 console.log('✅ QA Copilot loaded');
 
-window.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     console.log('⚙️ Initializing QA Copilot UI...');
-    await initApp();
+    initApp();
 });
 
 async function initApp() {
     setupNavigation();
-    setupTestGeneration?.();
-    setupAnalysis?.();
-    setupTestData?.();
-    setupExport?.();
-    setupSettings?.();
+    setupTestGeneration();
+    setupAnalysis();
+    setupTestData();
     setupTimeline();
-    loadSettings?.();
+    setupAccessibility();
+    setupExport();
+    setupSettings();
+    await loadSettings();
+}
+
+// ===== NAVIGATION =====
+function setupNavigation() {
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const tabs = document.querySelectorAll('.tab-pane');
+
+    async function switchTab(tabId) {
+        tabs.forEach(t => t.classList.remove('active'));
+        navBtns.forEach(n => n.classList.remove('active'));
+
+        document.getElementById(tabId)?.classList.add('active');
+        document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+
+        const titles = {
+            'test-cases': 'Test Case Generator',
+            'analyze': 'Page Analyzer',
+            'test-data': 'Test Data Generator',
+            'accessibility': 'Accessibility Audit',
+            'export': 'Export Tests',
+            'timeline': 'Session Timeline',
+            'settings': 'Settings'
+        };
+        document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
+
+        // ✅ Load timeline when switching to it
+        if (tabId === 'timeline') {
+            try {
+                const url = chrome.runtime.getURL('replay-viewer.js');
+                const mod = await import(url);
+                mod.renderTimeline(document.getElementById('timeline-container'));
+            } catch (error) {
+                console.error('Timeline load failed:', error);
+                document.getElementById('timeline-container').innerHTML =
+                    `<div style="color:red;padding:8px;">Error: ${error.message}</div>`;
+            }
+        }
+    }
+
+    // Restore last active tab
+    chrome.storage.local.get('activeTab', (data) => {
+        switchTab(data.activeTab || 'test-cases');
+    });
+
+    // Click listeners
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            switchTab(tabId);
+            chrome.storage.local.set({ activeTab: tabId });
+        });
+    });
+}
+
+// ===== TIMELINE TAB =====
+// ===== NAVIGATION =====
+function setupNavigation() {
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const tabs = document.querySelectorAll('.tab-pane');
+
+    async function switchTab(tabId) {
+        tabs.forEach(t => t.classList.remove('active'));
+        navBtns.forEach(n => n.classList.remove('active'));
+
+        document.getElementById(tabId)?.classList.add('active');
+        document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+
+        const titles = {
+            'test-cases': 'Test Case Generator',
+            'analyze': 'Page Analyzer',
+            'test-data': 'Test Data Generator',
+            'accessibility': 'Accessibility Audit',
+            'export': 'Export Tests',
+            'timeline': 'Session Timeline',
+            'settings': 'Settings'
+        };
+        document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
+
+        // ✅ Load timeline when switching to it
+        if (tabId === 'timeline') {
+            try {
+                const url = chrome.runtime.getURL('recording/timeline-view.js');  // ← Changed here
+                const mod = await import(url);
+                mod.renderTimeline(document.getElementById('timeline-container'));
+            } catch (error) {
+                console.error('Timeline load failed:', error);
+                document.getElementById('timeline-container').innerHTML =
+                    `<div style="color:red;padding:8px;">Error: ${error.message}</div>`;
+            }
+        }
+    }
+
+    // Restore last active tab
+    chrome.storage.local.get('activeTab', (data) => {
+        switchTab(data.activeTab || 'test-cases');
+    });
+
+    // Click listeners
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            switchTab(tabId);
+            chrome.storage.local.set({ activeTab: tabId });
+        });
+    });
 }
 
 // ===== TIMELINE TAB =====
 function setupTimeline() {
     const container = document.getElementById('timeline-container');
 
-    // Lazy import (so module loads only when needed)
+    // Lazy import
     async function getTimelineModule() {
         if (!window._timelineModule) {
-            const url = chrome.runtime.getURL('recording/timeline-view.js');
+            const url = chrome.runtime.getURL('recording/timeline-view.js');  // ← Changed here
             window._timelineModule = await import(url);
         }
         return window._timelineModule;
@@ -32,34 +137,44 @@ function setupTimeline() {
 
     // Manual refresh button
     document.getElementById('refresh-timeline')?.addEventListener('click', async () => {
-        const mod = await getTimelineModule();
-        mod.renderTimeline(container);
+        try {
+            const mod = await getTimelineModule();
+            mod.renderTimeline(container);
+        } catch (error) {
+            console.error('Timeline refresh failed:', error);
+            container.innerHTML = `<div style="color:red;padding:8px;">Error: ${error.message}</div>`;
+        }
     });
 
     // Auto-refresh every 10 seconds when timeline is active
     setInterval(async () => {
         const tabPane = document.getElementById('timeline');
         if (tabPane?.classList.contains('active')) {
-            const mod = await getTimelineModule();
-            mod.renderTimeline(container);
+            try {
+                const mod = await getTimelineModule();
+                mod.renderTimeline(container);
+            } catch (error) {
+                console.error('Timeline auto-refresh failed:', error);
+            }
         }
     }, 10000);
 
-    // 🐛 Report Bug button
+    // 🛠️ Report Bug button
     document.getElementById('report-bug-btn')?.addEventListener('click', async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const res = await chrome.runtime.sendMessage({ action: 'exportSession', tabId: tab.id });
-        const events = res?.data || [];
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const res = await chrome.runtime.sendMessage({ action: 'exportSession', tabId: tab.id });
+            const events = res?.data || [];
 
-        const bugData = {
-            page: tab.url,
-            capturedAt: new Date().toISOString(),
-            recentErrors: events.filter(e => e.type.includes('error')),
-            recentNetwork: events.filter(e => ['fetch', 'xhr', 'fetch_error'].includes(e.type)),
-            lastActions: events.slice(-10)
-        };
+            const bugData = {
+                page: tab.url,
+                capturedAt: new Date().toISOString(),
+                recentErrors: events.filter(e => e.type.includes('error')),
+                recentNetwork: events.filter(e => ['fetch', 'xhr', 'fetch_error'].includes(e.type)),
+                lastActions: events.slice(-10)
+            };
 
-        const md = `### 🐛 Bug Report
+            const md = `### 🐛 Bug Report
 **Page:** ${bugData.page}  
 **Captured:** ${bugData.capturedAt}
 
@@ -78,63 +193,123 @@ ${JSON.stringify(bugData.recentNetwork, null, 2)}
 ${JSON.stringify(bugData.lastActions, null, 2)}
 \`\`\``;
 
-        const blob = new Blob([md], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `bug-report-${Date.now()}.md`;
-        a.click();
-        URL.revokeObjectURL(url);
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bug-report-${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
 
-        showToast?.('Bug report exported', 'success');
+            showToast('Bug report exported', 'success');
+        } catch (error) {
+            console.error('Bug report failed:', error);
+            showToast('Failed to export bug report', 'error');
+        }
     });
 }
 
-// ===== NAVIGATION =====
-function setupNavigation() {
-    const navBtns = document.querySelectorAll('.nav-btn');
-    const tabs = document.querySelectorAll('.tab-pane');
+// ===== TEST GENERATION =====
+function setupTestGeneration() {
+    document.getElementById('generate-btn')?.addEventListener('click', handleGenerateTestCases);
+    document.getElementById('extract-btn')?.addEventListener('click', handleExtractPage);
+    document.getElementById('copy-tests-btn')?.addEventListener('click', () => {
+        copyToClipboard('test-output');
+    });
+}
 
-    function switchTab(tabId) {
-        tabs.forEach(t => t.classList.remove('active'));
-        navBtns.forEach(n => n.classList.remove('active'));
+async function handleGenerateTestCases() {
+    const featureText = document.getElementById('feature-input').value.trim();
+    const testType = document.getElementById('test-type').value;
+    const riskLevel = document.getElementById('risk-level').value;
+    const output = document.getElementById('test-output');
 
-        document.getElementById(tabId)?.classList.add('active');
-        document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
-
-        const titles = {
-            'test-cases': 'Test Case Generator',
-            'analyze': 'Page Analyzer',
-            'test-data': 'Test Data Generator',
-            'accessibility': 'Accessibility Audit',
-            'export': 'Export Tests',
-            'timeline': 'Session Timeline',
-            'settings': 'Settings'
-        };
-        document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
-
-        // Lazy-load and render timeline automatically when opened
-        if (tabId === 'timeline') {
-            const url = chrome.runtime.getURL('recording/timeline-view.js');
-            import(url).then(mod => {
-                mod.renderTimeline(document.getElementById('timeline-container'));
-            });
-        }
+    if (!featureText) {
+        showToast('Please describe the feature first', 'error');
+        return;
     }
 
-    // Restore last active tab
-    chrome.storage.local.get('activeTab', (data) => {
-        switchTab(data.activeTab || 'test-cases');
-    });
+    output.innerHTML = '<div class="loading"><div class="spinner"></div> Generating tests...</div>';
 
-    // Click listeners
-    navBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.dataset.tab;
-            switchTab(tabId);
-            chrome.storage.local.set({ activeTab: tabId });
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: 'generateTestCases',
+            data: { featureText, testType, riskLevel }
         });
+
+        if (response?.success) {
+            output.textContent = response.testCases;
+            if (response.fallback) {
+                showToast('Using fallback generation (API key not configured)', 'warning');
+            } else {
+                showToast('Tests generated!', 'success');
+            }
+        } else {
+            output.textContent = 'Error: ' + (response?.error || 'Unknown error');
+            showToast('Generation failed', 'error');
+        }
+    } catch (error) {
+        output.textContent = 'Error: ' + error.message;
+        showToast('Generation failed', 'error');
+    }
+}
+
+async function handleExtractPage() {
+    const output = document.getElementById('feature-input');
+
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const response = await chrome.runtime.sendMessage({
+            action: 'extractPageContent',
+            tabId: tab.id
+        });
+
+        if (response?.success) {
+            const data = response.data?.data || {};
+            const extracted = `Page: ${data.title || 'Unknown'}
+URL: ${data.url || ''}
+
+Form Fields: ${data.inputs?.map(i => i.name).join(', ') || 'None'}
+Buttons: ${data.buttons?.join(', ') || 'None'}`;
+
+            output.value = extracted;
+            showToast('Page content extracted!', 'success');
+        }
+    } catch (error) {
+        showToast('Failed to extract page', 'error');
+    }
+}
+
+// ===== ACCESSIBILITY =====
+function setupAccessibility() {
+    document.getElementById('run-a11y-btn')?.addEventListener('click', handleAccessibilityAudit);
+    document.getElementById('copy-a11y-btn')?.addEventListener('click', () => {
+        copyToClipboard('a11y-output');
     });
+}
+
+async function handleAccessibilityAudit() {
+    const output = document.getElementById('a11y-output');
+    output.innerHTML = '<div class="loading"><div class="spinner"></div> Running audit...</div>';
+
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const response = await chrome.runtime.sendMessage({
+            action: 'analyzeAccessibility',
+            tabId: tab.id
+        });
+
+        if (response?.success) {
+            const results = response.results;
+            output.textContent = `✅ ${results.summary}\n\nIssues Found: ${results.totalIssues}\n\n${results.issues.map((issue, i) =>
+                `${i + 1}. ${issue.type} (${issue.impact} impact)\n   ${issue.description}\n   Count: ${issue.count}`
+            ).join('\n\n')}`;
+            showToast('Audit complete!', 'success');
+        }
+    } catch (error) {
+        output.textContent = 'Error: ' + error.message;
+        showToast('Audit failed', 'error');
+    }
 }
 
 // ===== ANALYSIS =====
@@ -344,7 +519,7 @@ function setupExport() {
         });
     });
 
-    downloadBtn.addEventListener('click', handleDownload);
+    downloadBtn?.addEventListener('click', handleDownload);
 }
 
 function showExportPreview(format) {
@@ -423,7 +598,6 @@ function handleDownload() {
 function setupSettings() {
     document.getElementById('save-settings-btn')?.addEventListener('click', saveSettings);
 
-    // Setup toggles
     const toggles = ['toggle-jira', 'toggle-github'];
     toggles.forEach(id => {
         document.getElementById(id)?.addEventListener('click', function () {

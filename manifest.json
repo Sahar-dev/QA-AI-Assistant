@@ -63,7 +63,12 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "icon*.png"
+                "icon*.png",
+                "sidebar.html",
+                "sidebar.js",
+                "replay-viewer.js",
+                "timeline-view.js",
+                "recording/*"
             ],
             "matches": [
                 "<all_urls>"
