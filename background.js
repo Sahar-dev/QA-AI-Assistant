@@ -456,39 +456,221 @@ function pushSessionEvent(tabId, evt) {
     }
 }
 
-function generateTestFromEvents(framework, events) {
-    if (!events?.length) return "// No recorded events found.";
+// Replace your existing generateTestFromEvents in background.js with this version
 
-    const lines = [];
-    switch (framework) {
-        case "cypress":
-            lines.push("describe('Recorded Test', () => {");
-            lines.push("  it('should replay recorded actions', () => {");
-            events.forEach(ev => {
-                if (ev.type === "click" && ev.data.selector)
-                    lines.push(`    cy.get('${ev.data.selector}').click();`);
-                else if (ev.type === "input" && ev.data.selector)
-                    lines.push(`    cy.get('${ev.data.selector}').type('${ev.data.value}');`);
-            });
-            lines.push("  });");
-            lines.push("});");
-            break;
-        case "playwright":
-            lines.push("import { test, expect } from '@playwright/test';");
-            lines.push("test('Recorded Test', async ({ page }) => {");
-            for (const ev of events) {
-                if (ev.type === "click" && ev.data.selector)
-                    lines.push(`  await page.click('${ev.data.selector}');`);
-                else if (ev.type === "input" && ev.data.selector)
-                    lines.push(`  await page.fill('${ev.data.selector}', '${ev.data.value}');`);
-            }
-            lines.push("});");
-            break;
-        default:
-            lines.push("// Framework not supported yet.");
+// Replace your existing generateTestFromEvents in background.js with this version
+
+function generateTestFromEvents(framework, events = []) {
+    if (!events.length) return "// No recorded events found.";
+
+    const meta = events.metadata || {};
+    const fw = framework?.toLowerCase() || "cypress";
+
+    // ===== 1. CLEAN EVENTS =====
+    let cleaned = events.filter(e => {
+        if (!e || !e.type) return false;
+        // Remove noise
+        if (['keydown', 'keyup', 'mouse_move', 'scroll'].includes(e.type)) return false;
+        const selector = e.data?.selector || "";
+        if (selector.startsWith("> body") || selector === "body") return false;
+        return true;
+    });
+
+    // ===== 1.5. SORT: NAVIGATION MUST COME FIRST =====
+    const navEvent = cleaned.find(e => e.type === "navigation" && !e.data?.href?.includes("cloudflare"));
+    const otherEvents = cleaned.filter(e => e !== navEvent);
+
+    if (navEvent) {
+        cleaned = [navEvent, ...otherEvents];
     }
-    return lines.join("\n");
+
+    // ===== 2. MERGE CONSECUTIVE INPUTS ON SAME FIELD =====
+    const merged = [];
+    for (const ev of cleaned) {
+        const last = merged[merged.length - 1];
+        if (ev.type === "input" && last && last.type === "input" && ev.data?.selector === last.data?.selector) {
+            last.data.value = ev.data.value; // Keep latest value
+            continue;
+        }
+        merged.push(ev);
+    }
+
+    // ===== 3. REMOVE REDUNDANT ACTIONS =====
+    const optimized = [];
+    for (let i = 0; i < merged.length; i++) {
+        const current = merged[i];
+        const next = merged[i + 1];
+        const prev = optimized[optimized.length - 1];
+
+        // Skip click on form field if next event is input on same field
+        if (current.type === "click" &&
+            next &&
+            next.type === "input" &&
+            current.data?.selector === next.data?.selector) {
+            continue;
+        }
+
+        // 🎯 Skip duplicate clicks on same element within 2 seconds
+        if (current.type === "click" &&
+            prev &&
+            prev.type === "click" &&
+            current.data?.selector === prev.data?.selector &&
+            current.data?.text === prev.data?.text) {
+            const timeDiff = (current.t || 0) - (prev.t || 0);
+            if (timeDiff < 2000) { // Within 2 seconds
+                continue; // Skip duplicate click
+            }
+        }
+
+        // 🎯 Skip form_submit if previous action was a submit button click
+        if (current.type === "form_submit" && prev && prev.type === "click") {
+            const prevText = (prev.data?.text || "").toLowerCase();
+            if (prevText.includes("login") ||
+                prevText.includes("submit") ||
+                prevText.includes("sign in") ||
+                prevText.includes("sign up") ||
+                prevText.includes("continue")) {
+                continue; // Skip the form_submit event
+            }
+        }
+
+        optimized.push(current);
+    }
+
+    // ===== 4. GENERATE SELECTORS =====
+    const readableSelector = (ev) => {
+        const s = ev.data?.selector || "";
+        const txt = ev.data?.text?.trim();
+        if (txt && txt.length < 50) return `cy.contains('${txt.replace(/'/g, "\\'")}')`;
+        if (/^#[\w-]+$/.test(s)) return `cy.get('${s}')`;
+        if (s.includes("[data-testid")) return `cy.get('${s}')`;
+        if (s.match(/input|textarea|select/)) return `cy.get('${s}')`;
+        return `cy.get('${s.split(" ").slice(-2).join(" ")}')`;
+    };
+
+    // ===== 5. DETECT TEST TYPE =====
+    const textDump = optimized.map(e => e.data?.text || "").join(" ").toLowerCase();
+    const testName = meta.testName || (textDump.includes("login") ? "Login Flow" : "User Flow");
+    const testDesc = meta.testDescription || "should perform recorded actions successfully";
+
+    // ===== 6. BUILD TEST CODE =====
+    const lines = [];
+    lines.push("/**");
+    lines.push(` * Test Name: ${testName}`);
+    lines.push(` * Description: ${testDesc}`);
+    lines.push(` * Framework: ${fw}`);
+    lines.push(` * Events Recorded: ${optimized.length}`);
+    lines.push(` * Generated: ${new Date().toLocaleString()}`);
+    lines.push(" */\n");
+
+    lines.push(`describe('${testName}', () => {`);
+    lines.push(`  it('${testDesc}', () => {`);
+
+    let step = 1;
+    const visited = new Set();
+    const challengeLogged = new Set();
+    let addedAssertion = false;
+
+    for (const ev of optimized) {
+        const s = ev.data?.selector || "";
+        const v = (ev.data?.value || "").replace(/'/g, "\\'");
+        const url = ev.data?.href || "";
+        const txt = ev.data?.text?.trim() || "";
+
+        if (!s && ev.type !== "navigation") continue;
+
+        switch (ev.type) {
+            case "navigation":
+                if (url && !url.includes("cloudflare") && !visited.has(url)) {
+                    lines.push(`\n    // Step ${step++}: Navigate to the application`);
+                    lines.push(`    cy.visit('${url}');`);
+                    visited.add(url);
+                } else if (url.includes("cloudflare") && !challengeLogged.has(url)) {
+                    lines.push(`\n    // Step ${step++}: Cloudflare challenge detected`);
+                    lines.push(`    // Note: Automated tests may need manual intervention`);
+                    challengeLogged.add(url);
+                }
+                break;
+
+            case "input":
+                const fieldName = ev.data?.label || ev.data?.placeholder || ev.data?.name || s;
+                lines.push(`\n    // Step ${step++}: Enter "${v}" in ${fieldName}`);
+                lines.push(`    ${readableSelector(ev)}.clear().type('${v}');`);
+                break;
+
+            case "click":
+                lines.push(`\n    // Step ${step++}: Click "${txt || s}"`);
+                lines.push(`    ${readableSelector(ev)}.click();`);
+
+                if (txt.toLowerCase().includes("login") ||
+                    txt.toLowerCase().includes("submit") ||
+                    txt.toLowerCase().includes("sign in")) {
+                    lines.push(`    cy.url().should('not.include', 'login');`);
+                    addedAssertion = true;
+                }
+                break;
+
+            case "form_submit":
+                lines.push(`\n    // Step ${step++}: Submit form`);
+                lines.push(`    ${readableSelector(ev)}.submit();`);
+                break;
+
+            case "assertion":
+                const msg = ev.data?.text?.replace(/'/g, "\\'") || "";
+                if (msg) {
+                    lines.push(`\n    // Step ${step++}: Verify that "${msg}" is visible`);
+                    lines.push(`    cy.contains('${msg}').should('be.visible');`);
+                }
+                break;
+        }
+    }
+
+    // Final steps
+    lines.push(`\n    // Step ${step++}: Wait for page stability`);
+    lines.push(`    cy.wait(500);`);
+    lines.push(`    cy.screenshot('${testName.toLowerCase().replace(/\s+/g, "_")}');`);
+
+    lines.push("  });");
+    lines.push("});");
+
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+// ===== EXPORT FOR DIFFERENT FRAMEWORKS =====
+function generateForFramework(framework, events) {
+    // This function can be extended to support Playwright, Selenium, etc.
+    switch (framework.toLowerCase()) {
+        case 'cypress':
+            return generateTestFromEvents('cypress', events);
+        case 'playwright':
+            return generatePlaywrightTest(events);
+        case 'selenium':
+            return generateSeleniumTest(events);
+        case 'puppeteer':
+            return generatePuppeteerTest(events);
+        default:
+            return generateTestFromEvents('cypress', events);
+    }
+}
+
+// Placeholder for other frameworks (to be implemented)
+function generatePlaywrightTest(events) {
+    // Similar structure but with Playwright syntax
+    return "// Playwright test generation coming soon...";
+}
+
+function generateSeleniumTest(events) {
+    // Similar structure but with Selenium syntax
+    return "// Selenium test generation coming soon...";
+}
+
+function generatePuppeteerTest(events) {
+    // Similar structure but with Puppeteer syntax
+    return "// Puppeteer test generation coming soon...";
+}
+
+
+
 
 // === Message Handlers ===
 chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {

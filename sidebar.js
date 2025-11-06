@@ -569,16 +569,38 @@ function setupSettings() {
             this.classList.toggle('active');
         });
     });
+
+    // 🧠 Mask Passwords toggle
+    const maskToggle = document.getElementById("mask-passwords-toggle");
+
+    // Load saved value
+    chrome.storage.sync.get("maskPasswords", (data) => {
+        maskToggle.checked = data.maskPasswords ?? false;
+    });
+
+    // Save instantly when changed
+    maskToggle.addEventListener("change", () => {
+        chrome.storage.sync.set({ maskPasswords: maskToggle.checked });
+        showToast(
+            maskToggle.checked
+                ? "🔒 Password masking enabled — passwords will appear as ***"
+                : "🔓 Password masking disabled — real passwords will be recorded",
+            "info"
+        );
+    });
 }
 
 async function loadSettings() {
     try {
-        const settings = await chrome.storage.sync.get(['apiKey', 'aiProvider']);
+        const settings = await chrome.storage.sync.get(['apiKey', 'aiProvider', 'maskPasswords']);
         if (settings.apiKey) {
             document.getElementById('api-key').value = settings.apiKey;
         }
         if (settings.aiProvider) {
             document.getElementById('ai-provider').value = settings.aiProvider;
+        }
+        if (settings.maskPasswords !== undefined) {
+            document.getElementById('mask-passwords-toggle').checked = settings.maskPasswords;
         }
     } catch (error) {
         console.error('Failed to load settings:', error);
@@ -588,9 +610,10 @@ async function loadSettings() {
 async function saveSettings() {
     const apiKey = document.getElementById('api-key').value;
     const aiProvider = document.getElementById('ai-provider').value;
+    const maskPasswords = document.getElementById('mask-passwords-toggle')?.checked || false;
 
     try {
-        await chrome.storage.sync.set({ apiKey, aiProvider });
+        await chrome.storage.sync.set({ apiKey, aiProvider, maskPasswords });
         showToast('Settings saved!', 'success');
     } catch (error) {
         showToast('Failed to save settings', 'error');
