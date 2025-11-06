@@ -1,15 +1,24 @@
-// recording/recorder.js
+// recording/recorder.js - Enhanced version with test intent capture
 (function () {
     const S = (type, data = {}) => {
         try {
-            chrome.runtime.sendMessage({ action: 'recordEvent', payload: { type, data, url: location.href } });
+            chrome.runtime.sendMessage({
+                action: 'recordEvent',
+                payload: { type, data, url: location.href, timestamp: Date.now() }
+            });
         } catch { }
     };
 
-    // --- util: best-effort CSS selector
+    // === CSS Selector Generator ===
     const cssPath = (el) => {
         if (!el || !el.nodeType) return '';
         if (el.id) return `#${el.id}`;
+
+        // Prefer data-testid, data-test, or aria-label
+        if (el.dataset.testid) return `[data-testid="${el.dataset.testid}"]`;
+        if (el.dataset.test) return `[data-test="${el.dataset.test}"]`;
+        if (el.getAttribute('aria-label')) return `[aria-label="${el.getAttribute('aria-label')}"]`;
+
         let path = [];
         while (el && el.nodeType === 1 && path.length < 5) {
             let seg = el.nodeName.toLowerCase();
@@ -25,77 +34,150 @@
         return path.length ? path.join(' > ') : '';
     };
 
-    // --- clicks
+    // === Click Events ===
     window.addEventListener('click', (e) => {
         const t = e.target;
+        const tagName = t.tagName.toLowerCase();
+        const text = (t.textContent || '').trim().slice(0, 120);
+
+        // Detect action type
+        let actionType = 'click';
+        if (tagName === 'a') actionType = 'navigate';
+        if (tagName === 'button' && text.toLowerCase().includes('submit')) actionType = 'submit';
+
         S('click', {
             selector: cssPath(t),
-            text: (t.textContent || '').trim().slice(0, 120)
+            text: text,
+            tagName: tagName,
+            actionType: actionType,
+            href: t.href || null
         });
     }, true);
 
-    // --- inputs
+    // === Input Events ===
+    let inputTimers = {};
     window.addEventListener('input', (e) => {
         const t = e.target;
         if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)) return;
-        const kind = t.type || t.tagName.toLowerCase();
-        const val = kind === 'password' ? '***' : (t.value || '').slice(0, 200);
-        S('input', { selector: cssPath(t), kind, value: val });
+
+        const selector = cssPath(t);
+
+        // Debounce to capture final value
+        clearTimeout(inputTimers[selector]);
+        inputTimers[selector] = setTimeout(() => {
+            const kind = t.type || t.tagName.toLowerCase();
+            const val = kind === 'password' ? '***' : (t.value || '').slice(0, 200);
+            const placeholder = t.placeholder || '';
+            const label = document.querySelector(`label[for="${t.id}"]`)?.textContent || '';
+
+            S('input', {
+                selector,
+                kind,
+                value: val,
+                placeholder,
+                label,
+                name: t.name || t.id || ''
+            });
+        }, 500);
     }, true);
 
-    // --- keydowns (no text capture)
-    window.addEventListener('keydown', (e) => {
-        S('keydown', { key: e.key, code: e.code, ctrl: e.ctrlKey, meta: e.metaKey, alt: e.altKey, shift: e.shiftKey });
+    // === Form Submission ===
+    window.addEventListener('submit', (e) => {
+        const form = e.target;
+        S('form_submit', {
+            action: form.action,
+            method: form.method,
+            selector: cssPath(form)
+        });
     }, true);
 
-    // --- scroll (throttled)
-    let lastScroll = 0;
-    window.addEventListener('scroll', () => {
-        const now = Date.now();
-        if (now - lastScroll > 300) {
-            lastScroll = now;
-            S('scroll', { x: window.scrollX, y: window.scrollY });
+    // === Page Assertions (visible text changes) ===
+    const observeTextChanges = () => {
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((m) => {
+                m.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) {
+                        const text = node.textContent.trim();
+
+                        // Capture success/error messages
+                        if (/success|completed|confirmed/i.test(text)) {
+                            S('assertion', {
+                                type: 'success_message',
+                                text: text.slice(0, 200),
+                                selector: cssPath(node)
+                            });
+                        }
+
+                        if (/error|failed|invalid|unauthorized/i.test(text)) {
+                            S('assertion', {
+                                type: 'error_message',
+                                text: text.slice(0, 200),
+                                selector: cssPath(node)
+                            });
+                        }
+                    }
+                });
+            });
+        });
+
+        if (document.body) {
+            observer.observe(document.body, { childList: true, subtree: true });
         }
-    }, { passive: true });
-
-    // --- navigation
-    const reportNav = () => S('navigation', { href: location.href, title: document.title || '' });
-    reportNav();
-    window.addEventListener('popstate', reportNav);
-    const _pushState = history.pushState;
-    history.pushState = function (...args) { _pushState.apply(this, args); setTimeout(reportNav, 0); };
-    const _replaceState = history.replaceState;
-    history.replaceState = function (...args) { _replaceState.apply(this, args); setTimeout(reportNav, 0); };
-
-    // --- console errors
-    const origError = console.error;
-    console.error = function (...args) {
-        try { S('console_error', { message: args.map(a => stringify(a)).join(' ') }); } catch { }
-        return origError.apply(console, args);
     };
-    window.addEventListener('error', (e) => {
-        S('error', { message: e.message, source: e.filename, line: e.lineno, col: e.colno });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', observeTextChanges);
+    } else {
+        observeTextChanges();
+    }
+
+    // === Navigation Tracking ===
+    const reportNav = () => S('navigation', {
+        href: location.href,
+        title: document.title || '',
+        timestamp: Date.now()
     });
 
-    // --- fetch
+    reportNav();
+    window.addEventListener('popstate', reportNav);
+
+    const _pushState = history.pushState;
+    history.pushState = function (...args) {
+        _pushState.apply(this, args);
+        setTimeout(reportNav, 100);
+    };
+
+    const _replaceState = history.replaceState;
+    history.replaceState = function (...args) {
+        _replaceState.apply(this, args);
+        setTimeout(reportNav, 100);
+    };
+
+    // === Network Tracking (for API verification) ===
     const origFetch = window.fetch;
     window.fetch = async function (input, init = {}) {
         const started = performance.now();
+        const url = (typeof input === 'string') ? input : (input?.url || '');
+        const method = (init && init.method) || 'GET';
+
         try {
             const res = await origFetch(input, init);
             const elapsed = Math.round(performance.now() - started);
+
             S('fetch', {
-                method: (init && init.method) || 'GET',
-                url: (typeof input === 'string') ? input : (input?.url || ''),
+                method,
+                url,
                 status: res.status,
-                timeMs: elapsed
+                timeMs: elapsed,
+                timestamp: Date.now()
             });
+
             return res;
         } catch (err) {
             const elapsed = Math.round(performance.now() - started);
             S('fetch_error', {
-                method: (init && init.method) || 'GET',
-                url: (typeof input === 'string') ? input : (input?.url || ''),
+                method,
+                url,
                 timeMs: elapsed,
                 error: String(err && err.message || err)
             });
@@ -103,76 +185,14 @@
         }
     };
 
-    // --- XHR
-    const OrigXHR = window.XMLHttpRequest;
-    function PatchedXHR() {
-        const xhr = new OrigXHR();
-        let method = 'GET', url = '';
-        const started = performance.now();
-
-        const open = xhr.open;
-        xhr.open = function (m, u, ...rest) { method = m; url = u; return open.call(xhr, m, u, ...rest); };
-
-        xhr.addEventListener('loadend', () => {
-            S('xhr', {
-                method, url,
-                status: xhr.status,
-                timeMs: Math.round(performance.now() - started)
-            });
+    // === Console Error Tracking ===
+    window.addEventListener('error', (e) => {
+        S('error', {
+            message: e.message,
+            source: e.filename,
+            line: e.lineno
         });
-        return xhr;
-    }
-    window.XMLHttpRequest = PatchedXHR;
-
-    function stringify(x) {
-        try { return typeof x === 'string' ? x : JSON.stringify(x); } catch { return String(x); }
-    }
-    // 🧩 Detect visible UI error text
-    const observer = new MutationObserver(mutations => {
-        for (const m of mutations) {
-            m.addedNodes.forEach(node => {
-                if (node.nodeType === 1) {
-                    const text = node.textContent || "";
-                    if (/invalid|error|failed|unauthorized/i.test(text)) {
-                        S('ui_error', { message: text.trim().slice(0, 200) });
-                    }
-                }
-            });
-        }
     });
-    function startObserver() {
-        if (!document.body) {
-            console.warn("[QA Copilot] Waiting for document.body...");
-            return setTimeout(startObserver, 500); // retry every 500ms
-        }
 
-        const observer = new MutationObserver(mutations => {
-            for (const m of mutations) {
-                if (m.addedNodes) {
-                    m.addedNodes.forEach(node => {
-                        if (node.nodeType === 1) {
-                            const text = node.textContent || "";
-                            if (/invalid|error|failed|unauthorized/i.test(text)) {
-                                chrome.runtime.sendMessage({
-                                    action: "recordEvent",
-                                    payload: {
-                                        type: "ui_error",
-                                        data: { message: text.trim().slice(0, 200) }
-                                    }
-                                });
-                            }
-                        }
-                    });
-                }
-            }
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-        console.log("👀 QA Copilot DOM observer active");
-    }
-
-    startObserver();
-
-
+    console.log('🎬 QA Copilot Recorder Active');
 })();
-

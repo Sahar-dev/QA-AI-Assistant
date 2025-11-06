@@ -122,6 +122,8 @@ function setupNavigation() {
     });
 }
 
+
+
 // ===== TIMELINE TAB =====
 function setupTimeline() {
     const container = document.getElementById('timeline-container');

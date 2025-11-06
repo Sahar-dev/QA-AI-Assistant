@@ -433,22 +433,20 @@ function runBasicA11yCheck() {
         summary: issues.length === 0 ? 'No major issues found' : `Found ${issues.length} accessibility issues`
     };
 }
-// ===== background.js (global session version) =====
+// ===== background.js =====
 const SESSION_WINDOW_MS = 5 * 60 * 1000;
-let sessionBuffer = [];
-let lastActivePageTab = null;
+const sessionBuffers = new Map();
+let lastActivePageTab = null; // 🆕 keep track of last page that sent events
 
-// 🔹 Store events globally (not per-tab)
 function pushSessionEvent(tabId, evt) {
     if (!tabId) return;
-    lastActivePageTab = tabId;
-
+    lastActivePageTab = tabId; // 🧠 remember last page tab
     const now = Date.now();
-    sessionBuffer.push({ tabId, ...evt, t: now });
-
-    // keep only recent 5 min
+    const arr = sessionBuffers.get(tabId) || [];
+    arr.push({ ...evt, t: now });
     const cutoff = now - SESSION_WINDOW_MS;
-    sessionBuffer = sessionBuffer.filter(e => e.t >= cutoff);
+    while (arr.length && arr[0].t < cutoff) arr.shift();
+    sessionBuffers.set(tabId, arr);
 }
 
 chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
@@ -461,8 +459,17 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     }
 
     if (req.action === "exportSession") {
-        console.log(`📤 [Background] Sending ${sessionBuffer.length} events`);
-        sendResponse({ success: true, data: sessionBuffer, length: sessionBuffer.length });
-        return true;
+        // pick best tab candidate
+        let tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
+        if (!tabId) {
+            const keys = Array.from(sessionBuffers.keys());
+            tabId = keys[keys.length - 1];
+            console.log("⚙️ [Background] ultimate fallback to", tabId);
+        }
+
+        const data = sessionBuffers.get(tabId) || [];
+        console.log("📤 [Background] Sending", data.length, "events for tab", tabId);
+        sendResponse({ success: true, data, length: data.length });
+        return true; // async
     }
 });

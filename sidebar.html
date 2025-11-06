@@ -4,573 +4,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QA Copilot</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg: #0f0f14;
-            --bg-elevated: #1a1a24;
-            --bg-card: #242433;
-            --primary: #8b5cf6;
-            --primary-hover: #a78bfa;
-            --secondary: #06b6d4;
-            --success: #10b981;
-            --text: #e5e7eb;
-            --text-muted: #9ca3af;
-            --border: rgba(139, 92, 246, 0.2);
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-
-        /* Compact Sidebar - 50px instead of 72px */
-        .sidebar {
-            width: 50px;
-            background: var(--bg-elevated);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            padding: 12px 6px;
-            gap: 8px;
-        }
-
-        .nav-btn {
-            width: 38px;
-            height: 38px;
-            border: none;
-            background: transparent;
-            border-radius: 8px;
-            color: var(--text-muted);
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .nav-btn:hover {
-            background: rgba(139, 92, 246, 0.1);
-            color: var(--primary-hover);
-        }
-
-        .nav-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .nav-btn::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            left: 55px;
-            background: var(--bg-card);
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            border: 1px solid var(--border);
-        }
-
-        .nav-btn:hover::after {
-            opacity: 1;
-        }
-
-        /* Main Content */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .header {
-            padding: 16px 20px;
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .icon-btn {
-            width: 32px;
-            height: 32px;
-            border: 1px solid var(--border);
-            background: transparent;
-            border-radius: 6px;
-            color: var(--text-muted);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .icon-btn:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--primary);
-            color: var(--primary-hover);
-        }
-
-        .content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .content::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 4px;
-        }
-
-        /* Tab Panes */
-        .tab-pane {
-            display: none;
-        }
-
-        .tab-pane.active {
-            display: block;
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Cards - Reduced padding */
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .card-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        /* Form Elements - Compact */
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }
-
-        textarea,
-        input,
-        select {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-            color: var(--text);
-            font-size: 13px;
-            font-family: inherit;
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-            font-family: 'Courier New', monospace;
-            line-height: 1.5;
-        }
-
-        textarea:focus,
-        input:focus,
-        select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-        }
-
-        .input-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        /* Buttons - Better hierarchy */
-        .btn {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 13px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--secondary);
-            border: 1px solid var(--secondary);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(6, 182, 212, 0.1);
-        }
-
-        .btn-ghost {
-            background: transparent;
-            color: var(--text-muted);
-            border: 1px solid var(--border);
-        }
-
-        .btn-ghost:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .btn-full {
-            width: 100%;
-        }
-
-        /* Output Area - Better contrast */
-        .output {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.6;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .output::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .output::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 3px;
-        }
-
-        .output-empty {
-            color: var(--text-muted);
-            text-align: center;
-            padding: 40px 20px;
-            font-size: 13px;
-        }
-
-        /* Loading State */
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 30px;
-            color: var(--text-muted);
-        }
-
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(139, 92, 246, 0.2);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            animation: slideIn 0.3s;
-            z-index: 1000;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-            }
-
-            to {
-                transform: translateX(0);
-            }
-        }
-
-        .toast.success {
-            border-left: 3px solid var(--success);
-        }
-
-        .toast.error {
-            border-left: 3px solid #ef4444;
-        }
-
-        /* Quick Actions Grid */
-        .quick-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .quick-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .quick-card:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .quick-card-icon {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .quick-card-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .quick-card-desc {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        /* Export Options */
-        .export-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 12px 0;
-        }
-
-        .export-btn {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            cursor: pointer;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
-            transition: all 0.2s;
-        }
-
-        .export-btn:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--primary);
-            color: var(--text);
-        }
-
-        .export-btn.active {
-            background: rgba(139, 92, 246, 0.2);
-            border-color: var(--primary);
-            color: var(--primary-hover);
-        }
-
-        /* Settings Toggle */
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .setting-row:last-child {
-            border-bottom: none;
-        }
-
-        .setting-info {
-            flex: 1;
-        }
-
-        .setting-label {
-            font-size: 13px;
-            color: var(--text);
-            margin-bottom: 2px;
-        }
-
-        .setting-desc {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .toggle {
-            width: 44px;
-            height: 24px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .toggle.active {
-            background: var(--primary);
-        }
-
-        .toggle-handle {
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            transition: transform 0.2s;
-        }
-
-        .toggle.active .toggle-handle {
-            transform: translateX(20px);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-success {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--success);
-        }
-
-        .badge-warning {
-            background: rgba(251, 191, 36, 0.15);
-            color: #fbbf24;
-        }
-    </style>
+    <title>QA Copilot Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="sidebar.css">
 </head>
 
 <body>
     <div class="container">
-        <!-- Compact Sidebar -->
+        <!-- Premium Sidebar -->
         <div class="sidebar">
-            <button class="nav-btn active" data-tab="test-cases" data-tooltip="Test Cases">📝</button>
-            <button class="nav-btn" data-tab="timeline">🕒</button>
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+            </div>
 
-            <button class="nav-btn" data-tab="analyze" data-tooltip="Analyze Page">🔍</button>
-            <button class="nav-btn" data-tab="test-data" data-tooltip="Test Data">📊</button>
-            <button class="nav-btn" data-tab="accessibility" data-tooltip="Accessibility">♿</button>
-            <button class="nav-btn" data-tab="export" data-tooltip="Export">📤</button>
-            <button class="nav-btn" data-tab="settings" data-tooltip="Settings">⚙️</button>
+            <button class="nav-btn active" data-tab="test-cases" data-tooltip="Test Cases">
+                <i class="fas fa-file-contract"></i>
+            </button>
+            <button class="nav-btn" data-tab="timeline" data-tooltip="Timeline">
+                <i class="fas fa-clock-rotate-left"></i>
+            </button>
+            <button class="nav-btn" data-tab="analyze" data-tooltip="Analyze Page">
+                <i class="fas fa-magnifying-glass-chart"></i>
+            </button>
+            <button class="nav-btn" data-tab="test-data" data-tooltip="Test Data">
+                <i class="fas fa-database"></i>
+            </button>
+
+            <div class="nav-divider"></div>
+
+            <button class="nav-btn" data-tab="accessibility" data-tooltip="Accessibility">
+                <i class="fas fa-universal-access"></i>
+            </button>
+            <button class="nav-btn" data-tab="export" data-tooltip="Export">
+                <i class="fas fa-file-export"></i>
+            </button>
+            <button class="nav-btn" data-tab="settings" data-tooltip="Settings">
+                <i class="fas fa-gear"></i>
+            </button>
         </div>
 
         <!-- Main Content -->
         <div class="main">
             <div class="header">
-                <h1 id="header-title">Test Case Generator</h1>
+                <div class="header-left">
+                    <h1 id="header-title">Test Case Generator</h1>
+                    <span class="status-badge badge-success">
+                        <i class="fas fa-circle-check"></i> Active
+                    </span>
+                </div>
                 <div class="header-actions">
-                    <button class="icon-btn" id="save-session-btn" title="Save last 5 minutes">💾</button>
-                    <button class="icon-btn" id="refresh-btn" title="Refresh">🔄</button>
-                    <button class="icon-btn" id="help-btn" title="Help">❓</button>
+                    <button class="icon-btn" id="save-session-btn" title="Save Session">
+                        <i class="fas fa-floppy-disk"></i>
+                    </button>
+                    <button class="icon-btn" id="refresh-btn" title="Refresh">
+                        <i class="fas fa-rotate"></i>
+                    </button>
+                    <button class="icon-btn" id="help-btn" title="Help">
+                        <i class="fas fa-circle-question"></i>
+                    </button>
                 </div>
             </div>
 
@@ -579,17 +71,24 @@
                 <div class="tab-pane active" id="test-cases">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Feature Description</div>
-                            <button class="btn btn-ghost btn-sm" id="extract-btn">📄 Extract</button>
+                            <div class="card-title">
+                                <i class="fas fa-sparkles"></i>
+                                Feature Description
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="extract-btn">
+                                <i class="fas fa-wand-magic-sparkles"></i> Extract
+                            </button>
                         </div>
-                        <textarea id="feature-input" placeholder="Describe your feature or paste user story...
-
-Example: Login form with email/password validation"></textarea>
+                        <textarea id="feature-input"
+                            placeholder="Describe your feature or paste user story...&#10;&#10;Example: Login form with email/password validation"></textarea>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Configuration</div>
+                            <div class="card-title">
+                                <i class="fas fa-sliders"></i>
+                                Configuration
+                            </div>
                         </div>
                         <div class="input-row">
                             <div class="form-group">
@@ -611,16 +110,54 @@ Example: Login form with email/password validation"></textarea>
                                 </select>
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-full" id="generate-btn">✨ Generate Test Cases</button>
+                        <button class="btn btn-primary btn-full" id="generate-btn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Test Cases
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Generated Tests</div>
-                            <button class="btn btn-ghost" id="copy-tests-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-list-check"></i>
+                                Generated Tests
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-tests-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="test-output">
-                            <div class="output-empty">Generated test cases will appear here...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-sparkles"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Generated test cases will appear here...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Tab -->
+                <div class="tab-pane" id="timeline">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-timeline"></i>
+                                Session Timeline
+                            </div>
+                        </div>
+
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+                            Displays the last 5 minutes of recorded user actions, API calls, and console logs.
+                        </p>
+
+                        <div id="timeline-container" class="timeline-list"></div>
+
+                        <div style="margin-top: 20px; display: flex; gap: 12px;">
+                            <button id="refresh-timeline" class="btn btn-secondary btn-full">
+                                <i class="fas fa-rotate"></i> Refresh
+                            </button>
+                            <button id="report-bug-btn" class="btn btn-danger btn-full">
+                                <i class="fas fa-bug"></i> Report Bug
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -629,22 +166,30 @@ Example: Login form with email/password validation"></textarea>
                 <div class="tab-pane" id="analyze">
                     <div class="quick-grid">
                         <div class="quick-card" id="analyze-structure">
-                            <div class="quick-card-icon">🏗️</div>
+                            <div class="quick-card-icon">
+                                <i class="fas fa-sitemap"></i>
+                            </div>
                             <div class="quick-card-title">Structure</div>
                             <div class="quick-card-desc">Analyze DOM</div>
                         </div>
                         <div class="quick-card" id="analyze-forms">
-                            <div class="quick-card-icon">📝</div>
+                            <div class="quick-card-icon">
+                                <i class="fas fa-wpforms"></i>
+                            </div>
                             <div class="quick-card-title">Forms</div>
                             <div class="quick-card-desc">Validate inputs</div>
                         </div>
                         <div class="quick-card" id="analyze-links">
-                            <div class="quick-card-icon">🔗</div>
+                            <div class="quick-card-icon">
+                                <i class="fas fa-link"></i>
+                            </div>
                             <div class="quick-card-title">Links</div>
                             <div class="quick-card-desc">Check navigation</div>
                         </div>
                         <div class="quick-card" id="analyze-full">
-                            <div class="quick-card-icon">🚀</div>
+                            <div class="quick-card-icon">
+                                <i class="fas fa-rocket"></i>
+                            </div>
                             <div class="quick-card-title">Full Scan</div>
                             <div class="quick-card-desc">Complete analysis</div>
                         </div>
@@ -652,8 +197,13 @@ Example: Login form with email/password validation"></textarea>
 
                     <div class="card" id="analyze-results" style="display:none;">
                         <div class="card-header">
-                            <div class="card-title">Analysis Report</div>
-                            <button class="btn btn-ghost" id="copy-analysis-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-chart-line"></i>
+                                Analysis Report
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-analysis-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="analyze-output"></div>
                     </div>
@@ -663,12 +213,15 @@ Example: Login form with email/password validation"></textarea>
                 <div class="tab-pane" id="test-data">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Data Schema</div>
+                            <div class="card-title">
+                                <i class="fas fa-code"></i>
+                                Data Schema
+                            </div>
                         </div>
                         <textarea id="data-schema"
                             placeholder='{"name": "string", "email": "email", "age": "number"}'>{"name": "string", "email": "email", "age": "number"}</textarea>
 
-                        <div class="input-row" style="margin-top: 12px;">
+                        <div class="input-row" style="margin-top: 16px;">
                             <div class="form-group">
                                 <label class="form-label">Records</label>
                                 <input type="number" id="record-count" value="5" min="1" max="100">
@@ -682,58 +235,64 @@ Example: Login form with email/password validation"></textarea>
                                 </select>
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-full" id="generate-data-btn">📊 Generate Data</button>
+                        <button class="btn btn-primary btn-full" id="generate-data-btn">
+                            <i class="fas fa-chart-simple"></i> Generate Data
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Generated Data</div>
-                            <button class="btn btn-ghost" id="copy-data-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-table"></i>
+                                Generated Data
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-data-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="data-output">
-                            <div class="output-empty">Data will appear here...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-database"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Data will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Timeline Tab -->
-                <div class="tab-pane" id="timeline">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">Session Timeline</div>
-                        </div>
-
-                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-                            Displays the last 5 minutes of recorded user actions, API calls, and console logs.
-                        </p>
-
-                        <div id="timeline-container" class="timeline-list"></div>
-
-                        <div style="margin-top: 10px; display: flex; gap: 8px;">
-                            <button id="refresh-timeline" class="btn btn-secondary btn-full">🔄 Refresh</button>
-                            <button id="report-bug-btn" class="btn btn-danger btn-full">🐛 Report Bug</button>
-                        </div>
-                    </div>
-                </div>
                 <!-- Accessibility Tab -->
                 <div class="tab-pane" id="accessibility">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Accessibility Audit</div>
+                            <div class="card-title">
+                                <i class="fas fa-shield-halved"></i>
+                                Accessibility Audit
+                            </div>
                         </div>
-                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
                             Scan the current page for WCAG compliance issues.
                         </p>
-                        <button class="btn btn-primary btn-full" id="run-a11y-btn">🚀 Run Audit</button>
+                        <button class="btn btn-primary btn-full" id="run-a11y-btn">
+                            <i class="fas fa-play"></i> Run Audit
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Results</div>
-                            <button class="btn btn-ghost" id="copy-a11y-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-clipboard-check"></i>
+                                Results
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-a11y-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="a11y-output">
-                            <div class="output-empty">Results will appear here...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-universal-access"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Results will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -742,25 +301,49 @@ Example: Login form with email/password validation"></textarea>
                 <div class="tab-pane" id="export">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Export Format</div>
+                            <div class="card-title">
+                                <i class="fas fa-file-export"></i>
+                                Export Format
+                            </div>
                         </div>
                         <div class="export-grid">
-                            <div class="export-btn" data-format="cypress">Cypress</div>
-                            <div class="export-btn" data-format="jest">Jest</div>
-                            <div class="export-btn" data-format="postman">Postman</div>
-                            <div class="export-btn" data-format="playwright">Playwright</div>
-                            <div class="export-btn" data-format="testrail">TestRail</div>
-                            <div class="export-btn" data-format="html">HTML</div>
+                            <div class="export-btn" data-format="cypress">
+                                <i class="fas fa-circle-nodes"></i><br>Cypress
+                            </div>
+                            <div class="export-btn" data-format="jest">
+                                <i class="fab fa-js"></i><br>Jest
+                            </div>
+                            <div class="export-btn" data-format="postman">
+                                <i class="fas fa-paper-plane"></i><br>Postman
+                            </div>
+                            <div class="export-btn" data-format="playwright">
+                                <i class="fas fa-masks-theater"></i><br>Playwright
+                            </div>
+                            <div class="export-btn" data-format="testrail">
+                                <i class="fas fa-train"></i><br>TestRail
+                            </div>
+                            <div class="export-btn" data-format="html">
+                                <i class="fab fa-html5"></i><br>HTML
+                            </div>
                         </div>
-                        <button class="btn btn-primary btn-full" id="download-btn">⬇️ Download</button>
+                        <button class="btn btn-primary btn-full" id="download-btn">
+                            <i class="fas fa-download"></i> Download
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Preview</div>
+                            <div class="card-title">
+                                <i class="fas fa-eye"></i>
+                                Preview
+                            </div>
                         </div>
                         <div class="output" id="export-preview">
-                            <div class="output-empty">Select a format to preview...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-file-code"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Select a format to preview...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -769,7 +352,10 @@ Example: Login form with email/password validation"></textarea>
                 <div class="tab-pane" id="settings">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">AI Configuration</div>
+                            <div class="card-title">
+                                <i class="fas fa-brain"></i>
+                                AI Configuration
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">AI Provider</label>
@@ -782,16 +368,23 @@ Example: Login form with email/password validation"></textarea>
                             <label class="form-label">API Key</label>
                             <input type="password" id="api-key" placeholder="sk-...">
                         </div>
-                        <button class="btn btn-primary btn-full" id="save-settings-btn">💾 Save</button>
+                        <button class="btn btn-primary btn-full" id="save-settings-btn">
+                            <i class="fas fa-floppy-disk"></i> Save Settings
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Integrations</div>
+                            <div class="card-title">
+                                <i class="fas fa-puzzle-piece"></i>
+                                Integrations
+                            </div>
                         </div>
                         <div class="setting-row">
                             <div class="setting-info">
-                                <div class="setting-label">Jira</div>
+                                <div class="setting-label">
+                                    <i class="fab fa-jira"></i> Jira
+                                </div>
                                 <div class="setting-desc">Export to Jira Test Management</div>
                             </div>
                             <div class="toggle" id="toggle-jira">
@@ -800,10 +393,39 @@ Example: Login form with email/password validation"></textarea>
                         </div>
                         <div class="setting-row">
                             <div class="setting-info">
-                                <div class="setting-label">GitHub</div>
+                                <div class="setting-label">
+                                    <i class="fab fa-github"></i> GitHub
+                                </div>
                                 <div class="setting-desc">Push tests to GitHub Issues</div>
                             </div>
                             <div class="toggle" id="toggle-github">
+                                <div class="toggle-handle"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-palette"></i>
+                                Appearance
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-label">Animations</div>
+                                <div class="setting-desc">Enable smooth transitions</div>
+                            </div>
+                            <div class="toggle active">
+                                <div class="toggle-handle"></div>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-info">
+                                <div class="setting-label">Compact Mode</div>
+                                <div class="setting-desc">Reduce spacing for smaller screens</div>
+                            </div>
+                            <div class="toggle">
                                 <div class="toggle-handle"></div>
                             </div>
                         </div>
