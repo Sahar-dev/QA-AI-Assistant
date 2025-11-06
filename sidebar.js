@@ -22,6 +22,10 @@ async function initApp() {
     setupSettings();
     loadSavedTests();
     await loadSettings();
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes.savedTests) loadSavedTests();
+    });
+
 }
 
 // ===== NAVIGATION =====
@@ -142,20 +146,22 @@ function setupRecording() {
     // Generate Automated Test
     generateCodeBtn?.addEventListener("click", async () => {
         const framework = frameworkSelect?.value || "cypress";
+        const codeCard = document.getElementById("code-output-card");
+        const codeOutput = document.getElementById("code-output");
+
+        // show code card and loader
+        codeCard.classList.remove("hidden");
         codeOutput.innerHTML =
             '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
 
         try {
-            const response = await new Promise((resolve) => {
+            const response = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage(
                     { action: "generateAutomatedTest", framework },
                     (res) => {
-                        // handle runtime errors gracefully
                         if (chrome.runtime.lastError) {
-                            console.warn("⏳ Delayed response:", chrome.runtime.lastError.message);
-                            // wait a bit, try reading saved tests anyway
-                            setTimeout(() => loadSavedTests(), 800);
-                            resolve({ success: true, code: "// Code generation completed (async)." });
+                            console.error("⏳ runtime.lastError:", chrome.runtime.lastError.message);
+                            reject(chrome.runtime.lastError);
                         } else {
                             resolve(res);
                         }
@@ -164,21 +170,20 @@ function setupRecording() {
             });
 
             if (response?.success) {
-                codeOutput.textContent = response.code || "// Code generated successfully.";
+                // ✅ show the generated code
+                codeOutput.textContent = response.code;
                 showToast("✨ Test code generated!", "success");
-
-                // Delay refresh slightly to let Chrome finish writing to storage
                 setTimeout(loadSavedTests, 500);
             } else {
-                const msg = response?.error || "Unknown error";
-                codeOutput.textContent = "Error: " + msg;
-                showToast("Generation failed", "error");
+                throw new Error(response?.error || "Unknown error");
             }
         } catch (error) {
-            codeOutput.textContent = "Error: " + error.message;
+            codeOutput.textContent = `Error: ${error.message}`;
             showToast("Generation failed", "error");
         }
     });
+
+
 
     // Copy generated code
     document.getElementById('copy-code-btn')?.addEventListener('click', () => {
@@ -207,58 +212,64 @@ async function loadSavedTests() {
     const tests = data.savedTests || [];
 
     if (!tests.length) {
-        container.innerHTML = `<div class="output-empty">
-            <i class="fas fa-box-open"
-                style="font-size:32px;margin-bottom:12px;display:block;opacity:0.3;"></i>
-            No recorded tests yet.
-        </div>`;
+        container.innerHTML = `
+      <tr class="output-empty">
+        <td colspan="6" style="text-align:center;padding:12px;color:#9ca3af;">
+          <i class="fas fa-box-open" style="font-size:16px;margin-right:6px;opacity:0.5;"></i>
+          No recorded tests yet.
+        </td>
+      </tr>`;
         return;
     }
 
     container.innerHTML = tests
         .map(
             (t, i) => `
-        <div class="saved-test-item" data-index="${i}"
-            style="padding:14px;border-bottom:1px solid #eee;display:flex;flex-direction:column;gap:6px;">
-            <div style="font-weight:700;color:#4f46e5;">${t.testName || "Unnamed Test"}</div>
-            <div style="font-size:13px;color:#6b7280;">${t.testDescription || "(No description provided)"}</div>
-            <div style="font-size:12px;color:#666;">
-                ${t.framework.toUpperCase()} • ${t.eventCount} events •
-                ${new Date(t.createdAt).toLocaleString()}
-            </div>
-            <div style="display:flex;gap:8px;margin-top:4px;">
-                <button class="btn btn-ghost btn-sm copy-btn" style="flex:1;">
-                    <i class="fas fa-copy"></i> Copy Code
-                </button>
-                <button class="btn btn-ghost btn-sm delete-btn" style="flex:1;color:#ef4444;">
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-            </div>
-        </div>`
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:6px 8px;font-weight:600;color:#4f46e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${t.testName || "Unnamed Test"}
+        </td>
+        <td style="padding:6px 8px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${t.testDescription || "—"}
+        </td>
+        <td style="padding:6px 8px;">${t.framework?.toUpperCase()}</td>
+        <td style="padding:6px 8px;text-align:center;">${t.eventCount}</td>
+        <td style="padding:6px 8px;color:#6b7280;white-space:nowrap;">
+          ${new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </td>
+        <td style="padding:6px 8px;text-align:right;">
+          <button class="btn btn-ghost btn-sm copy-btn" data-index="${i}" title="Copy Code">
+            <i class="fas fa-copy"></i>
+          </button>
+          <button class="btn btn-ghost btn-sm delete-btn" data-index="${i}" title="Delete" style="color:#ef4444;">
+            <i class="fas fa-trash"></i>
+          </button>
+        </td>
+      </tr>`
         )
         .join("");
 
-    // attach click listeners
-    container.querySelectorAll(".copy-btn").forEach((btn, i) => {
-        btn.addEventListener("click", async () => {
-            const test = tests[i];
-            await navigator.clipboard.writeText(test.code);
+    // Actions
+    container.querySelectorAll(".copy-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+            const idx = e.currentTarget.dataset.index;
+            await navigator.clipboard.writeText(tests[idx].code);
             showToast("Copied to clipboard!", "success");
         });
     });
 
-    container.querySelectorAll(".delete-btn").forEach((btn, i) => {
-        btn.addEventListener("click", async () => {
-            const confirmed = confirm(`Delete test "${tests[i].testName}"?`);
-            if (!confirmed) return;
-
-            const newTests = tests.filter((_, idx) => idx !== i);
+    container.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+            const idx = e.currentTarget.dataset.index;
+            if (!confirm(`Delete test "${tests[idx].testName}"?`)) return;
+            const newTests = tests.filter((_, i) => i !== parseInt(idx));
             await chrome.storage.local.set({ savedTests: newTests });
-            showToast("Test deleted.", "success");
-            loadSavedTests(); // refresh list
+            showToast("Deleted!", "success");
+            loadSavedTests();
         });
     });
 }
+
 
 function updateRecordingUI() {
     const startBtn = document.getElementById('start-recording');

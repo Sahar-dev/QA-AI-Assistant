@@ -491,19 +491,18 @@ function generateTestFromEvents(framework, events) {
 }
 
 // === Message Handlers ===
-chrome.runtime.onMessage.addListener(async (req, sender, sendResponse) => {
-    console.log("📩 [Background] Message:", req.action, "from tab", sender?.tab?.id);
-
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+    // --- lightweight events (synchronous) ---
     if (req.action === "recordEvent") {
         pushSessionEvent(sender?.tab?.id || req.tabId, req.payload);
-        return;
+        return; // immediate, no async
     }
 
     if (req.action === "startRecordingSession") {
         console.log("🎬 Manual recording started");
         isRecording = true;
         recordedEvents = [];
-        recordedEvents.metadata = req.metadata || {}; // 🧠 store name & desc
+        recordedEvents.metadata = req.metadata || {};
         sendResponse({ success: true });
         return true;
     }
@@ -520,49 +519,42 @@ chrome.runtime.onMessage.addListener(async (req, sender, sendResponse) => {
         return true;
     }
 
-    if (req.action === "generateAutomatedTest") {
-        console.log("🧠 Generating test code for framework:", req.framework);
-
+    // --- heavy async work wrapped in a Promise ---
+    if (req.action === "generateAutomatedTest" || req.action === "exportSession") {
         (async () => {
             try {
-                const code = generateTestFromEvents(req.framework, recordedEvents);
-
-                // Save to local storage
-                const data = await chrome.storage.local.get("savedTests");
-                const existing = data.savedTests || [];
-
-                const testData = {
-                    id: Date.now(),
-                    framework: req.framework,
-                    createdAt: new Date().toISOString(),
-                    eventCount: recordedEvents.length,
-                    code,
-                    testName: recordedEvents?.metadata?.testName || "Untitled Test",
-                    testDescription: recordedEvents?.metadata?.testDescription || ""
-                };
-
-                existing.push(testData);
-                await chrome.storage.local.set({ savedTests: existing });
-
-                console.log("✅ Code generation complete, saved:", req.framework);
-                sendResponse({ success: true, code });
+                if (req.action === "generateAutomatedTest") {
+                    console.log("🧠 Generating test code for framework:", req.framework);
+                    const code = generateTestFromEvents(req.framework, recordedEvents);
+                    const data = await chrome.storage.local.get("savedTests");
+                    const existing = data.savedTests || [];
+                    const testData = {
+                        id: Date.now(),
+                        framework: req.framework,
+                        createdAt: new Date().toISOString(),
+                        eventCount: recordedEvents.length,
+                        code,
+                        testName: recordedEvents?.metadata?.testName || "Untitled Test",
+                        testDescription: recordedEvents?.metadata?.testDescription || ""
+                    };
+                    existing.push(testData);
+                    await chrome.storage.local.set({ savedTests: existing });
+                    console.log("✅ Code generation complete, sending back:", req.framework);
+                    sendResponse({ success: true, code });
+                } else if (req.action === "exportSession") {
+                    const tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
+                    const data = sessionBuffers.get(tabId) || [];
+                    sendResponse({ success: true, data });
+                }
             } catch (err) {
-                console.error("❌ Code generation failed:", err);
+                console.error("❌ Background async error:", err);
                 sendResponse({ success: false, error: err.message });
             }
         })();
-
-        // tell Chrome this is async
-        return true;
+        return true; // keep port alive for async
     }
 
-
-    if (req.action === "exportSession") {
-        const tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
-        const data = sessionBuffers.get(tabId) || [];
-        sendResponse({ success: true, data });
-        return true;
-    }
-
-    return false;
+    // --- unknown ---
+    sendResponse({ success: false, error: "Unknown action" });
+    return true;
 });
