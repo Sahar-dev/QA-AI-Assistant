@@ -729,3 +729,52 @@
       font-size: 13px;
       opacity: 0.9;
   }
+
+  .hidden {
+      display: none !important;
+  }
+
+  #framework-selection,
+  #code-output-card {
+      animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes slideDown {
+      from {
+          opacity: 0;
+          transform: translateY(-20px);
+      }
+
+      to {
+          opacity: 1;
+          transform: translateY(0);
+      }
+  }
+
+  #recording-status {
+      transition: all 0.3s;
+  }
+
+  button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+  }
+
+  #saved-tests-container .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      transition: all 0.3s;
+  }
+
+  #saved-tests-container .card:hover {
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      transform: translateY(-1px);
+  }
+
+  #saved-tests-container pre {
+      background: #f8f9fe;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+  }

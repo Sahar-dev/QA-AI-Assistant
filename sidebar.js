@@ -1,5 +1,11 @@
 console.log('✅ QA Copilot loaded');
 
+let recordingState = {
+    isRecording: false,
+    eventCount: 0,
+    startTime: null
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log('⚙️ Initializing QA Copilot UI...');
     initApp();
@@ -12,7 +18,7 @@ async function initApp() {
     setupTestData();
     setupTimeline();
     setupAccessibility();
-    setupExport();
+    setupRecording(); // NEW!
     setupSettings();
     await loadSettings();
 }
@@ -32,7 +38,7 @@ function setupNavigation() {
         const titles = {
             'test-cases': 'Test Case Generator',
             'analyze': 'Page Analyzer',
-            'test-data': 'Test Data Generator',
+            'test-data': 'Test Recording',
             'accessibility': 'Accessibility Audit',
             'export': 'Export Tests',
             'timeline': 'Session Timeline',
@@ -40,26 +46,21 @@ function setupNavigation() {
         };
         document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
 
-        // ✅ Load timeline when switching to it
         if (tabId === 'timeline') {
             try {
-                const url = chrome.runtime.getURL('replay-viewer.js');
+                const url = chrome.runtime.getURL('timeline-view.js');
                 const mod = await import(url);
                 mod.renderTimeline(document.getElementById('timeline-container'));
             } catch (error) {
                 console.error('Timeline load failed:', error);
-                document.getElementById('timeline-container').innerHTML =
-                    `<div style="color:red;padding:8px;">Error: ${error.message}</div>`;
             }
         }
     }
 
-    // Restore last active tab
     chrome.storage.local.get('activeTab', (data) => {
         switchTab(data.activeTab || 'test-cases');
     });
 
-    // Click listeners
     navBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.tab;
@@ -69,86 +70,176 @@ function setupNavigation() {
     });
 }
 
-// ===== TIMELINE TAB =====
-// ===== NAVIGATION =====
-function setupNavigation() {
-    const navBtns = document.querySelectorAll('.nav-btn');
-    const tabs = document.querySelectorAll('.tab-pane');
+// ===== TEST RECORDING (NEW) =====
+function setupRecording() {
+    const startBtn = document.getElementById('start-recording');
+    const stopBtn = document.getElementById('stop-recording');
+    const statusDisplay = document.getElementById('recording-status');
+    const frameworkSelect = document.getElementById('framework-select');
+    const generateCodeBtn = document.getElementById('generate-code-btn');
+    const codeOutput = document.getElementById('code-output');
 
-    async function switchTab(tabId) {
-        tabs.forEach(t => t.classList.remove('active'));
-        navBtns.forEach(n => n.classList.remove('active'));
+    // Start Recording
+    startBtn?.addEventListener('click', async () => {
+        const testName = document.getElementById('test-name')?.value || 'Unnamed Test';
+        const testDesc = document.getElementById('test-description')?.value || '';
 
-        document.getElementById(tabId)?.classList.add('active');
-        document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-        const titles = {
-            'test-cases': 'Test Case Generator',
-            'analyze': 'Page Analyzer',
-            'test-data': 'Test Data Generator',
-            'accessibility': 'Accessibility Audit',
-            'export': 'Export Tests',
-            'timeline': 'Session Timeline',
-            'settings': 'Settings'
-        };
-        document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
+            const response = await chrome.runtime.sendMessage({
+                action: 'startRecordingSession',
+                metadata: {
+                    testName: testName,
+                    testDescription: testDesc,
+                    startUrl: tab.url
+                }
+            });
 
-        // ✅ Load timeline when switching to it
-        if (tabId === 'timeline') {
-            try {
-                const url = chrome.runtime.getURL('recording/timeline-view.js');  // ← Changed here
-                const mod = await import(url);
-                mod.renderTimeline(document.getElementById('timeline-container'));
-            } catch (error) {
-                console.error('Timeline load failed:', error);
-                document.getElementById('timeline-container').innerHTML =
-                    `<div style="color:red;padding:8px;">Error: ${error.message}</div>`;
+            if (response.success) {
+                recordingState.isRecording = true;
+                recordingState.startTime = Date.now();
+                updateRecordingUI();
+                showToast('🎬 Recording started!', 'success');
+
+                // Start event counter
+                startEventCounter();
             }
+        } catch (error) {
+            showToast('Failed to start recording', 'error');
+            console.error(error);
         }
-    }
-
-    // Restore last active tab
-    chrome.storage.local.get('activeTab', (data) => {
-        switchTab(data.activeTab || 'test-cases');
     });
 
-    // Click listeners
-    navBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.dataset.tab;
-            switchTab(tabId);
-            chrome.storage.local.set({ activeTab: tabId });
-        });
+    // Stop Recording
+    stopBtn?.addEventListener('click', async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'stopRecordingSession'
+            });
+
+            if (response.success) {
+                recordingState.isRecording = false;
+                updateRecordingUI();
+                const events = response.data || response.events || [];
+                showToast(`🛑 Recording stopped! Captured ${events.length} events`, 'success');
+
+                // Show framework selection
+                document.getElementById('framework-selection')?.classList.remove('hidden');
+            }
+        } catch (error) {
+            showToast('Failed to stop recording', 'error');
+            console.error(error);
+        }
+    });
+
+    // Generate Automated Test
+    generateCodeBtn?.addEventListener('click', async () => {
+        const framework = frameworkSelect?.value || 'cypress';
+        codeOutput.innerHTML = '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'generateAutomatedTest',
+                framework: framework
+            });
+
+            if (response.success) {
+                codeOutput.textContent = response.code;
+                showToast('✨ Test code generated!', 'success');
+            } else {
+                codeOutput.textContent = 'Error: ' + response.error;
+                showToast('Generation failed', 'error');
+            }
+        } catch (error) {
+            codeOutput.textContent = 'Error: ' + error.message;
+            showToast('Generation failed', 'error');
+        }
+    });
+
+    // Copy generated code
+    document.getElementById('copy-code-btn')?.addEventListener('click', () => {
+        copyToClipboard('code-output');
+    });
+
+    // Download generated code
+    document.getElementById('download-code-btn')?.addEventListener('click', () => {
+        const code = document.getElementById('code-output').textContent;
+        const framework = frameworkSelect?.value || 'cypress';
+
+        const extensions = {
+            cypress: 'cy.js',
+            playwright: 'spec.js',
+            selenium: 'java',
+            puppeteer: 'js'
+        };
+
+        downloadFile(code, `test.${extensions[framework]}`, 'text/plain');
+        showToast('Downloaded!', 'success');
     });
 }
 
+function updateRecordingUI() {
+    const startBtn = document.getElementById('start-recording');
+    const stopBtn = document.getElementById('stop-recording');
+    const statusDisplay = document.getElementById('recording-status');
 
+    if (recordingState.isRecording) {
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusDisplay.textContent = `🔴 Recording... (${recordingState.eventCount} events)`;
+        statusDisplay.style.color = '#ef4444';
+    } else {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        statusDisplay.textContent = '⚪ Not recording';
+        statusDisplay.style.color = '#64748b';
+    }
+}
+
+function startEventCounter() {
+    const interval = setInterval(async () => {
+        if (!recordingState.isRecording) {
+            clearInterval(interval);
+            return;
+        }
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'getRecordingState'
+            });
+
+            if (response.success) {
+                recordingState.eventCount = response.eventCount;
+                updateRecordingUI();
+            }
+        } catch (error) {
+            console.error('Failed to get recording state:', error);
+        }
+    }, 1000);
+}
 
 // ===== TIMELINE TAB =====
 function setupTimeline() {
     const container = document.getElementById('timeline-container');
 
-    // Lazy import
     async function getTimelineModule() {
         if (!window._timelineModule) {
-            const url = chrome.runtime.getURL('recording/timeline-view.js');  // ← Changed here
+            const url = chrome.runtime.getURL('timeline-view.js');
             window._timelineModule = await import(url);
         }
         return window._timelineModule;
     }
 
-    // Manual refresh button
     document.getElementById('refresh-timeline')?.addEventListener('click', async () => {
         try {
             const mod = await getTimelineModule();
             mod.renderTimeline(container);
         } catch (error) {
             console.error('Timeline refresh failed:', error);
-            container.innerHTML = `<div style="color:red;padding:8px;">Error: ${error.message}</div>`;
         }
     });
 
-    // Auto-refresh every 10 seconds when timeline is active
     setInterval(async () => {
         const tabPane = document.getElementById('timeline');
         if (tabPane?.classList.contains('active')) {
@@ -161,7 +252,6 @@ function setupTimeline() {
         }
     }, 10000);
 
-    // 🛠️ Report Bug button
     document.getElementById('report-bug-btn')?.addEventListener('click', async () => {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -177,7 +267,7 @@ function setupTimeline() {
             };
 
             const md = `### 🐛 Bug Report
-**Page:** ${bugData.page}  
+**Page:** ${bugData.page}
 **Captured:** ${bugData.capturedAt}
 
 #### 🔴 Recent Errors
@@ -195,14 +285,7 @@ ${JSON.stringify(bugData.recentNetwork, null, 2)}
 ${JSON.stringify(bugData.lastActions, null, 2)}
 \`\`\``;
 
-            const blob = new Blob([md], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bug-report-${Date.now()}.md`;
-            a.click();
-            URL.revokeObjectURL(url);
-
+            downloadFile(md, `bug-report-${Date.now()}.md`, 'text/markdown');
             showToast('Bug report exported', 'success');
         } catch (error) {
             console.error('Bug report failed:', error);
@@ -242,13 +325,10 @@ async function handleGenerateTestCases() {
         if (response?.success) {
             output.textContent = response.testCases;
             if (response.fallback) {
-                showToast('Using fallback generation (API key not configured)', 'warning');
+                showToast('Using fallback generation', 'warning');
             } else {
                 showToast('Tests generated!', 'success');
             }
-        } else {
-            output.textContent = 'Error: ' + (response?.error || 'Unknown error');
-            showToast('Generation failed', 'error');
         }
     } catch (error) {
         output.textContent = 'Error: ' + error.message;
@@ -303,9 +383,7 @@ async function handleAccessibilityAudit() {
 
         if (response?.success) {
             const results = response.results;
-            output.textContent = `✅ ${results.summary}\n\nIssues Found: ${results.totalIssues}\n\n${results.issues.map((issue, i) =>
-                `${i + 1}. ${issue.type} (${issue.impact} impact)\n   ${issue.description}\n   Count: ${issue.count}`
-            ).join('\n\n')}`;
+            output.textContent = `✅ ${results.summary}\n\nIssues: ${results.totalIssues}`;
             showToast('Audit complete!', 'success');
         }
     } catch (error) {
@@ -336,7 +414,6 @@ async function handleAnalysis(type) {
 
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
         const extraction = await chrome.runtime.sendMessage({
             action: 'extractPageContent',
             tabId: tab.id
@@ -374,226 +451,20 @@ async function handleAnalysis(type) {
 }
 
 function analyzeStructure(data) {
-    return `📊 PAGE STRUCTURE ANALYSIS
-
-Page Title: ${data.title || 'N/A'}
-URL: ${data.url || 'N/A'}
-
-Headings Found: ${data.headings?.length || 0}
-${data.headings?.map((h, i) => `${i + 1}. ${h}`).join('\n') || 'None'}
-
-✅ Recommended Tests:
-1. Verify page loads with correct title
-2. Check all headings are properly hierarchical
-3. Validate URL structure and routing`;
+    return `📊 PAGE STRUCTURE\n\nTitle: ${data.title}\nHeadings: ${data.headings?.length || 0}`;
 }
 
 function analyzeForms(data) {
-    const inputs = data.inputs || [];
-    return `📝 FORM ANALYSIS
-
-Total Form Elements: ${inputs.length}
-
-Fields Detected:
-${inputs.map((input, i) => `${i + 1}. ${input.name || 'Unnamed'} (${input.type})${input.required ? ' *Required' : ''}`).join('\n') || 'No forms found'}
-
-✅ Recommended Tests:
-1. Validate all required field validations
-2. Test boundary values for each input
-3. Verify error messages display correctly
-4. Test form submission with valid/invalid data`;
+    return `📝 FORM ANALYSIS\n\nFields: ${data.inputs?.length || 0}`;
 }
 
 function analyzeLinks(data) {
-    const links = data.links || [];
-    return `🔗 NAVIGATION ANALYSIS
-
-Total Links: ${links.length}
-
-Links Found:
-${links.map((link, i) => `${i + 1}. ${link.text} → ${link.href}`).join('\n') || 'No links found'}
-
-✅ Recommended Tests:
-1. Verify all links are clickable
-2. Check no broken links (404s)
-3. Test deep linking
-4. Validate external links open in new tabs`;
+    return `🔗 NAVIGATION\n\nLinks: ${data.links?.length || 0}`;
 }
 
 // ===== TEST DATA =====
 function setupTestData() {
-    document.getElementById('generate-data-btn')?.addEventListener('click', handleGenerateData);
-    document.getElementById('copy-data-btn')?.addEventListener('click', () => {
-        copyToClipboard('data-output');
-    });
-}
-
-function handleGenerateData() {
-    const schemaText = document.getElementById('data-schema').value.trim();
-    const count = parseInt(document.getElementById('record-count').value);
-    const format = document.getElementById('data-format').value;
-    const output = document.getElementById('data-output');
-
-    if (!schemaText) {
-        showToast('Please enter a schema', 'error');
-        return;
-    }
-
-    try {
-        const schema = JSON.parse(schemaText);
-        const data = generateMockData(schema, count, format);
-        output.textContent = JSON.stringify(data, null, 2);
-        showToast('Test data generated!', 'success');
-    } catch (error) {
-        output.innerHTML = `<div style="color: #ef4444;">❌ Invalid schema: ${error.message}</div>`;
-        showToast('Invalid schema', 'error');
-    }
-}
-
-function generateMockData(schema, count, format) {
-    const results = [];
-
-    for (let i = 0; i < count; i++) {
-        const record = {};
-
-        for (const [key, type] of Object.entries(schema)) {
-            record[key] = generateValue(type, i, format);
-        }
-
-        results.push(record);
-    }
-
-    return results;
-}
-
-function generateValue(type, index, format) {
-    const invalid = format === 'Invalid Data';
-    const edge = format === 'Edge Cases';
-
-    switch (type.toLowerCase()) {
-        case 'string':
-            if (invalid) return index % 2 === 0 ? null : '';
-            if (edge) return 'A'.repeat(1000);
-            return `Sample ${index + 1}`;
-
-        case 'email':
-            if (invalid) return 'invalid.email';
-            if (edge) return `test${'x'.repeat(50)}@example.com`;
-            return `user${index + 1}@example.com`;
-
-        case 'number':
-        case 'age':
-            if (invalid) return 'not-a-number';
-            if (edge) return index % 2 === 0 ? -999 : 999;
-            return Math.floor(Math.random() * 100);
-
-        case 'boolean':
-            if (invalid) return 'maybe';
-            return Math.random() > 0.5;
-
-        case 'phone':
-            if (invalid) return '123';
-            if (edge) return '+1' + '9'.repeat(20);
-            return `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`;
-
-        case 'date':
-            if (invalid) return '2024-13-45';
-            if (edge) return '1900-01-01';
-            const date = new Date();
-            date.setDate(date.getDate() - Math.floor(Math.random() * 365));
-            return date.toISOString().split('T')[0];
-
-        default:
-            return `value_${index + 1}`;
-    }
-}
-
-// ===== EXPORT =====
-function setupExport() {
-    const exportBtns = document.querySelectorAll('.export-btn');
-    const downloadBtn = document.getElementById('download-btn');
-
-    exportBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            exportBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            showExportPreview(btn.dataset.format);
-        });
-    });
-
-    downloadBtn?.addEventListener('click', handleDownload);
-}
-
-function showExportPreview(format) {
-    const preview = document.getElementById('export-preview');
-    const testCases = document.getElementById('test-output').textContent;
-
-    const templates = {
-        cypress: `describe('Test Suite', () => {
-  beforeEach(() => {
-    cy.visit('/');
-  });
-
-  it('should verify basic functionality', () => {
-    cy.get('[data-testid="element"]').should('be.visible');
-    cy.get('button').click();
-    cy.get('.result').should('contain', 'success');
-  });
-});`,
-
-        jest: `import { render, screen } from '@testing-library/react';
-import Component from './Component';
-
-describe('Component Tests', () => {
-  test('renders correctly', () => {
-    render(<Component />);
-    expect(screen.getByText('Hello')).toBeInTheDocument();
-  });
-});`,
-
-        postman: JSON.stringify({
-            info: { name: 'API Tests', description: 'Generated tests' },
-            item: [{ name: 'GET Test', request: { method: 'GET', url: 'https://api.example.com/test' } }]
-        }, null, 2),
-
-        playwright: `import { test, expect } from '@playwright/test';
-
-test('basic test', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('h1')).toBeVisible();
-});`,
-
-        testrail: `Case ID,Title,Priority,Steps,Expected
-TC-001,Basic Test,High,"1. Open app\n2. Click button","Success message"`
-    };
-
-    preview.textContent = templates[format] || testCases || 'No tests generated yet';
-    preview.dataset.format = format;
-}
-
-function handleDownload() {
-    const preview = document.getElementById('export-preview');
-    const content = preview.textContent;
-    const format = preview.dataset.format || 'txt';
-
-    const extensions = {
-        cypress: 'cy.js',
-        jest: 'test.js',
-        postman: 'json',
-        playwright: 'spec.js',
-        testrail: 'csv',
-        html: 'html'
-    };
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tests.${extensions[format] || 'txt'}`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    showToast('Downloaded!', 'success');
+    // Remove old data generation, keep only recording
 }
 
 // ===== SETTINGS =====
@@ -611,7 +482,6 @@ function setupSettings() {
 async function loadSettings() {
     try {
         const settings = await chrome.storage.sync.get(['apiKey', 'aiProvider']);
-
         if (settings.apiKey) {
             document.getElementById('api-key').value = settings.apiKey;
         }
@@ -645,8 +515,18 @@ function copyToClipboard(elementId) {
     }
 
     navigator.clipboard.writeText(text)
-        .then(() => showToast('Copied to clipboard!', 'success'))
+        .then(() => showToast('Copied!', 'success'))
         .catch(() => showToast('Failed to copy', 'error'));
+}
+
+function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 function showToast(message, type = 'success') {
@@ -665,11 +545,11 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Add fade out animation
 const style = document.createElement('style');
 style.textContent = `
     @keyframes fadeOut {
         to { opacity: 0; transform: translateX(400px); }
     }
+    .hidden { display: none !important; }
 `;
 document.head.appendChild(style);

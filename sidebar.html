@@ -21,6 +21,10 @@
             <button class="nav-btn active" data-tab="test-cases" data-tooltip="Test Cases">
                 <i class="fas fa-file-contract"></i>
             </button>
+            <button class="nav-btn" data-tab="manual-tests" data-tooltip="Manual Recording">
+                <i class="fas fa-video"></i>
+            </button>
+
             <button class="nav-btn" data-tab="timeline" data-tooltip="Timeline">
                 <i class="fas fa-clock-rotate-left"></i>
             </button>
@@ -110,6 +114,7 @@
                                 </select>
                             </div>
                         </div>
+
                         <button class="btn btn-primary btn-full" id="generate-btn">
                             <i class="fas fa-wand-magic-sparkles"></i> Generate Test Cases
                         </button>
@@ -138,16 +143,7 @@
                 <!-- Timeline Tab -->
                 <div class="tab-pane" id="timeline">
                     <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <i class="fas fa-timeline"></i>
-                                Session Timeline
-                            </div>
-                        </div>
 
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-                            Displays the last 5 minutes of recorded user actions, API calls, and console logs.
-                        </p>
 
                         <div id="timeline-container" class="timeline-list"></div>
 
@@ -347,7 +343,203 @@
                         </div>
                     </div>
                 </div>
+                <!-- Manual Test Recording Tab -->
+                <div class="tab-pane" id="manual-tests">
+                    <!-- Recording Controls -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-video"></i>
+                                Manual Test Recording
+                            </div>
+                        </div>
 
+                        <div class="form-group">
+                            <label class="form-label">Test Name</label>
+                            <input type="text" id="test-name" placeholder="e.g., Login Flow Test" value="Recorded Test">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description (Optional)</label>
+                            <textarea id="test-description" placeholder="Describe what this test validates..."
+                                style="min-height: 80px;"></textarea>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                            <button id="start-recording" class="btn btn-primary" style="flex: 1;">
+                                <i class="fas fa-circle"></i> Start Recording
+                            </button>
+                            <button id="stop-recording" class="btn btn-danger" style="flex: 1;" disabled>
+                                <i class="fas fa-stop"></i> Stop Recording
+                            </button>
+                        </div>
+
+
+                        <div id="recording-status" style="
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-elevated);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        ">
+                            ⚪ Not recording
+                        </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="card" style="background: linear-gradient(135deg, #f8f9fe 0%, #faf5ff 100%);">
+                        <div class="card-title" style="margin-bottom: 16px;">
+                            <i class="fas fa-lightbulb" style="color: #f59e0b;"></i>
+                            How It Works
+                        </div>
+                        <ol style="
+            padding-left: 20px;
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        ">
+                            <li><strong>Click "Start Recording"</strong> - Extension begins tracking your actions</li>
+                            <li><strong>Perform your test manually</strong> - Click buttons, fill forms, navigate pages
+                            </li>
+                            <li><strong>Click "Stop Recording"</strong> - Extension captures all events</li>
+                            <li><strong>Select automation framework</strong> - Choose Cypress, Playwright, etc.</li>
+                            <li><strong>Generate automated test</strong> - Get ready-to-use test code!</li>
+                        </ol>
+                    </div>
+
+                    <!-- Framework Selection (hidden until recording stops) -->
+                    <div class="card hidden" id="framework-selection">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-code"></i>
+                                Generate Automated Test
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Select Framework</label>
+                            <select id="framework-select">
+                                <option value="cypress">Cypress (JavaScript)</option>
+                                <option value="playwright">Playwright (TypeScript)</option>
+                                <option value="selenium">Selenium (Java)</option>
+                                <option value="puppeteer">Puppeteer (JavaScript)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary btn-full" id="generate-code-btn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Test Code
+                        </button>
+                    </div>
+
+                    <!-- Generated Code Output -->
+                    <div class="card hidden" id="code-output-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-file-code"></i>
+                                Generated Test Code
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-ghost btn-sm" id="copy-code-btn">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <button class="btn btn-ghost btn-sm" id="download-code-btn">
+                                    <i class="fas fa-download"></i> Download
+                                </button>
+                            </div>
+                        </div>
+                        <div class="output" id="code-output">
+                            <div class="output-empty">
+                                <i class="fas fa-code"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Generated code will appear here...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- What Gets Captured -->
+                    <div class="card">
+                        <div class="card-title" style="margin-bottom: 12px;">
+                            <i class="fas fa-clipboard-list"></i>
+                            What We Capture
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <div style="
+                padding: 12px;
+                background: rgba(124, 58, 237, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid var(--primary);
+            ">
+                                <div style="font-weight: 600; color: var(--primary); margin-bottom: 4px;">
+                                    <i class="fas fa-mouse-pointer"></i> User Actions
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Clicks, inputs, form submissions
+                                </div>
+                            </div>
+                            <!-- Library of Saved Tests -->
+                            <div class="card" id="saved-tests-card" style="margin-top:20px;">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <i class="fas fa-folder-open"></i>
+                                        Saved Tests Library
+                                    </div>
+                                </div>
+                                <div id="saved-tests-container" class="output">
+                                    <div class="output-empty">
+                                        <i class="fas fa-box-open"
+                                            style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                        No recorded tests yet.
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            <div style="
+                padding: 12px;
+                background: rgba(16, 185, 129, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid var(--success);
+            ">
+                                <div style="font-weight: 600; color: var(--success); margin-bottom: 4px;">
+                                    <i class="fas fa-route"></i> Navigation
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Page changes, URL updates
+                                </div>
+                            </div>
+
+                            <div style="
+                padding: 12px;
+                background: rgba(236, 72, 153, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid var(--accent);
+            ">
+                                <div style="font-weight: 600; color: var(--accent); margin-bottom: 4px;">
+                                    <i class="fas fa-check-circle"></i> Assertions
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Success/error messages
+                                </div>
+                            </div>
+
+                            <div style="
+                padding: 12px;
+                background: rgba(6, 182, 212, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid #06b6d4;
+            ">
+                                <div style="font-weight: 600; color: #06b6d4; margin-bottom: 4px;">
+                                    <i class="fas fa-network-wired"></i> API Calls
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Network requests & responses
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Settings Tab -->
                 <div class="tab-pane" id="settings">
                     <div class="card">
@@ -357,6 +549,7 @@
                                 AI Configuration
                             </div>
                         </div>
+
                         <div class="form-group">
                             <label class="form-label">AI Provider</label>
                             <select id="ai-provider">
