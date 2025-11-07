@@ -849,8 +849,12 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
                 if (req.action === "generateAutomatedTest") {
                     console.log("🧠 Generating test code for framework:", req.framework);
                     const code = generateTestFromEvents(req.framework, recordedEvents);
-                    const data = await chrome.storage.local.get("savedTests");
+                    const data = await chrome.storage.local.get(['savedTests', 'collections', 'activeCollection']);
                     const existing = data.savedTests || [];
+                    const collections = data.collections || [];
+                    const activeId = data.activeCollection;
+
+                    // Create the new test object
                     const testData = {
                         id: Date.now(),
                         framework: req.framework,
@@ -860,9 +864,22 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
                         testName: recordedEvents?.metadata?.testName || "Untitled Test",
                         testDescription: recordedEvents?.metadata?.testDescription || ""
                     };
+
+                    // Save globally
                     existing.push(testData);
                     await chrome.storage.local.set({ savedTests: existing });
-                    console.log("✅ Code generation complete, sending back:", req.framework);
+
+                    // Also attach to active collection if one is selected
+                    if (activeId) {
+                        const collection = collections.find(c => c.id === activeId);
+                        if (collection) {
+                            collection.tests = collection.tests || [];
+                            collection.tests.push(testData);
+                            await chrome.storage.local.set({ collections });
+                            console.log(`📁 Test added to collection: ${collection.name}`);
+                        }
+                    }
+
                     sendResponse({ success: true, code });
                 } else if (req.action === "exportSession") {
                     const tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
