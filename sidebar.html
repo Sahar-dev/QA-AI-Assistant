@@ -408,7 +408,141 @@
                             <li><strong>Generate automated test</strong> - Get ready-to-use test code!</li>
                         </ol>
                     </div>
+                    <div class="card" id="test-options-card"
+                        style="background: linear-gradient(135deg, #f8f9fe 0%, #faf5ff 100%);">
+                        <div class="card-title" style="margin-bottom: 16px;">
+                            <i class="fas fa-sliders"></i>
+                            Test Generation Options
+                        </div>
 
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <!-- Keep All Attempts -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-repeat"></i> Keep All Attempts
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Include retry logic
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="keep-all-attempts-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Network Calls -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-network-wired"></i> API Calls
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Network assertions
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-network-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Assertions -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-check-circle"></i> Auto Assertions
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Verify steps
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-assertions-toggle" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Hovers -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-hand-pointer"></i> Hover Actions
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Mouseover events
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-hovers-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Scrolls -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-arrows-up-down"></i> Scroll Events
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Page scrolling
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-scrolls-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div style="margin-top: 16px; display: flex; gap: 8px;">
+                            <button class="btn btn-ghost btn-sm" id="preset-basic" style="flex: 1;">
+                                <i class="fas fa-bolt"></i> Basic
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="preset-comprehensive" style="flex: 1;">
+                                <i class="fas fa-star"></i> Full
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="preset-minimal" style="flex: 1;">
+                                <i class="fas fa-minimize"></i> Minimal
+                            </button>
+                        </div>
+
+                        <!-- Examples -->
+                        <div
+                            style="margin-top: 12px; padding: 12px; background: rgba(124, 58, 237, 0.05); border-radius: 8px; border-left: 3px solid var(--primary);">
+                            <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 6px;">
+                                💡 Presets:
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+                                <strong>Basic:</strong> Clicks + Inputs<br>
+                                <strong>Full:</strong> Everything enabled<br>
+                                <strong>Minimal:</strong> Actions only, no assertions
+                            </div>
+                        </div>
+                    </div>
                     <!-- Framework Selection (hidden until recording stops) -->
                     <div class="card hidden" id="framework-selection">
                         <div class="card-header">
@@ -658,6 +792,7 @@
     </div>
 
     <script src="sidebar.js"></script>
+
 </body>
 
 </html>

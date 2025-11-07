@@ -1,4 +1,4 @@
-// recording/recorder.js - Enhanced version with smart filtering
+// recording/recorder.js - ADVANCED VERSION with all features
 (function () {
     // ===== STATE MANAGEMENT =====
     let lastClickedElement = null;
@@ -6,8 +6,10 @@
     let lastInputSelector = null;
     let navigationReported = false;
     let maskPasswords = false;
+    let dragState = null;
+    let hoverTimer = null;
 
-    // Load password masking preference
+    // Load preferences
     chrome.storage.sync.get("maskPasswords", (data) => {
         maskPasswords = data.maskPasswords ?? false;
     });
@@ -25,7 +27,7 @@
                 }
             });
         } catch (err) {
-            console.warn('Failed to send event:', err);
+            console.warn('QA Copilot: Failed to send event:', err);
         }
     };
 
@@ -33,31 +35,25 @@
     const generateSelector = (el) => {
         if (!el || !el.nodeType) return '';
 
-        // 1. Prefer ID (most stable)
+        // 1. Prefer ID
         if (el.id && /^[a-zA-Z][\w-]*$/.test(el.id)) {
             return `#${el.id}`;
         }
 
-        // 2. Prefer data-testid (best practice)
-        if (el.dataset.testid) {
-            return `[data-testid="${el.dataset.testid}"]`;
-        }
-        if (el.dataset.test) {
-            return `[data-test="${el.dataset.test}"]`;
-        }
+        // 2. Prefer data-testid
+        if (el.dataset.testid) return `[data-testid="${el.dataset.testid}"]`;
+        if (el.dataset.test) return `[data-test="${el.dataset.test}"]`;
 
-        // 3. Prefer aria-label (accessibility)
+        // 3. Prefer aria-label
         const ariaLabel = el.getAttribute('aria-label');
-        if (ariaLabel) {
-            return `[aria-label="${ariaLabel}"]`;
-        }
+        if (ariaLabel) return `[aria-label="${ariaLabel}"]`;
 
         // 4. Form inputs with name
         if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') && el.name) {
             return `${el.tagName.toLowerCase()}[name="${el.name}"]`;
         }
 
-        // 5. Build path with classes (max 3 levels)
+        // 5. Build path with classes
         const path = [];
         let current = el;
         let depth = 0;
@@ -65,11 +61,10 @@
         while (current && current.nodeType === 1 && depth < 3) {
             let segment = current.nodeName.toLowerCase();
 
-            // Add meaningful classes only
             if (current.className && typeof current.className === 'string') {
                 const classes = current.className.trim()
                     .split(/\s+/)
-                    .filter(c => !c.match(/^(active|selected|focus|hover|js-)/)) // Exclude state classes
+                    .filter(c => !c.match(/^(active|selected|focus|hover|js-|is-)/))
                     .slice(0, 2);
 
                 if (classes.length > 0) {
@@ -77,7 +72,6 @@
                 }
             }
 
-            // Add nth-child only if needed
             const siblings = Array.from(current.parentNode?.children || [])
                 .filter(s => s.nodeName === current.nodeName);
 
@@ -94,18 +88,17 @@
         return path.length ? path.join(' > ') : 'body';
     };
 
-    // ===== SMART CLICK HANDLER =====
+    // ===== 1. CLICK HANDLER (Enhanced) =====
     window.addEventListener('click', (e) => {
         const target = e.target;
         const tagName = target.tagName.toLowerCase();
         const text = (target.textContent || '').trim().slice(0, 120);
         const selector = generateSelector(target);
 
-        // Store click context
         lastClickedElement = target;
         lastClickTime = Date.now();
 
-        // Skip clicks on form inputs (they'll be captured by input event)
+        // Skip clicks on form inputs (handled by input event)
         if (['input', 'textarea', 'select'].includes(tagName)) {
             lastInputSelector = selector;
             return;
@@ -132,7 +125,7 @@
         });
     }, true);
 
-    // ===== SMART INPUT HANDLER (DEBOUNCED) =====
+    // ===== 2. INPUT HANDLER (Debounced) =====
     const inputTimers = {};
 
     window.addEventListener('input', (e) => {
@@ -142,18 +135,14 @@
         }
 
         const selector = generateSelector(target);
-
-        // Clear existing timer for this field
         clearTimeout(inputTimers[selector]);
 
-        // Debounce: wait 500ms after last keystroke
         inputTimers[selector] = setTimeout(() => {
             const fieldType = target.type || 'text';
             const value = maskPasswords && fieldType === 'password'
                 ? '***'
                 : (target.value || '').slice(0, 200);
 
-            // Get label text
             const labelText = target.labels?.[0]?.textContent?.trim() ||
                 document.querySelector(`label[for="${target.id}"]`)?.textContent?.trim() ||
                 target.placeholder ||
@@ -169,22 +158,166 @@
                 name: target.name || target.id || ''
             });
 
-            // Reset input selector tracking
             lastInputSelector = null;
         }, 500);
     }, true);
 
-    // ===== FORM SUBMISSION HANDLER =====
-    window.addEventListener('submit', (e) => {
-        const form = e.target;
-        sendEvent('form_submit', {
-            action: form.action || '',
-            method: (form.method || 'GET').toUpperCase(),
-            selector: generateSelector(form)
+    // ===== 3. SELECT/DROPDOWN HANDLER =====
+    window.addEventListener('change', (e) => {
+        const target = e.target;
+
+        if (target.tagName === 'SELECT') {
+            const selector = generateSelector(target);
+            const selectedOption = target.options[target.selectedIndex];
+            const value = selectedOption?.value || '';
+            const text = selectedOption?.text || '';
+
+            sendEvent('select', {
+                selector,
+                value,
+                text,
+                label: document.querySelector(`label[for="${target.id}"]`)?.textContent?.trim() || target.name || ''
+            });
+        }
+
+        // Handle checkboxes
+        if (target.type === 'checkbox') {
+            sendEvent('checkbox', {
+                selector: generateSelector(target),
+                checked: target.checked,
+                label: document.querySelector(`label[for="${target.id}"]`)?.textContent?.trim() || target.name || ''
+            });
+        }
+
+        // Handle radio buttons
+        if (target.type === 'radio') {
+            sendEvent('radio', {
+                selector: generateSelector(target),
+                value: target.value,
+                name: target.name,
+                label: document.querySelector(`label[for="${target.id}"]`)?.textContent?.trim() || ''
+            });
+        }
+    }, true);
+
+    // ===== 4. FILE UPLOAD HANDLER =====
+    window.addEventListener('change', (e) => {
+        const target = e.target;
+        if (target.type === 'file') {
+            const files = Array.from(target.files || []).map(f => ({
+                name: f.name,
+                size: f.size,
+                type: f.type
+            }));
+
+            sendEvent('file_upload', {
+                selector: generateSelector(target),
+                files,
+                label: document.querySelector(`label[for="${target.id}"]`)?.textContent?.trim() || ''
+            });
+        }
+    }, true);
+
+    // ===== 5. DRAG & DROP HANDLER =====
+    let draggedElement = null;
+
+    window.addEventListener('dragstart', (e) => {
+        draggedElement = e.target;
+        dragState = {
+            source: generateSelector(e.target),
+            sourceText: e.target.textContent?.trim().slice(0, 50) || ''
+        };
+    }, true);
+
+    window.addEventListener('drop', (e) => {
+        if (dragState && e.target !== draggedElement) {
+            sendEvent('drag_drop', {
+                source: dragState.source,
+                sourceText: dragState.sourceText,
+                target: generateSelector(e.target),
+                targetText: e.target.textContent?.trim().slice(0, 50) || ''
+            });
+        }
+        dragState = null;
+        draggedElement = null;
+    }, true);
+
+    window.addEventListener('dragend', () => {
+        dragState = null;
+        draggedElement = null;
+    }, true);
+
+    // ===== 6. HOVER HANDLER (with delay to avoid noise) =====
+    window.addEventListener('mouseover', (e) => {
+        const target = e.target;
+
+        // Skip if hovering over input fields or body
+        if (['input', 'textarea', 'select', 'body'].includes(target.tagName.toLowerCase())) {
+            return;
+        }
+
+        clearTimeout(hoverTimer);
+
+        // Only record if hover lasts > 500ms (intentional hover)
+        hoverTimer = setTimeout(() => {
+            const selector = generateSelector(target);
+            const text = target.textContent?.trim().slice(0, 50) || '';
+
+            // Only record if element has interactive content
+            if (text || target.querySelector('a, button')) {
+                sendEvent('hover', {
+                    selector,
+                    text,
+                    tagName: target.tagName.toLowerCase()
+                });
+            }
+        }, 500);
+    }, true);
+
+    window.addEventListener('mouseout', () => {
+        clearTimeout(hoverTimer);
+    }, true);
+
+    // ===== 7. RIGHT CLICK / CONTEXT MENU =====
+    window.addEventListener('contextmenu', (e) => {
+        sendEvent('right_click', {
+            selector: generateSelector(e.target),
+            text: e.target.textContent?.trim().slice(0, 50) || ''
         });
     }, true);
 
-    // ===== SMART MUTATION OBSERVER FOR ASSERTIONS =====
+    // ===== 8. DOUBLE CLICK =====
+    window.addEventListener('dblclick', (e) => {
+        sendEvent('double_click', {
+            selector: generateSelector(e.target),
+            text: e.target.textContent?.trim().slice(0, 50) || ''
+        });
+    }, true);
+
+    // ===== 9. FORM SUBMISSION =====
+    let lastFormSubmitTime = 0;
+    let lastFormSelector = null;
+
+    window.addEventListener('submit', (e) => {
+        const form = e.target;
+        const selector = generateSelector(form);
+        const now = Date.now();
+
+        if (selector === lastFormSelector && (now - lastFormSubmitTime) < 1000) {
+            return;
+        }
+
+        lastFormSelector = selector;
+        lastFormSubmitTime = now;
+
+        sendEvent('form_submit', {
+            action: form.action || '',
+            method: (form.method || 'GET').toUpperCase(),
+            selector
+        });
+    }, true);
+
+    // ===== 10. DYNAMIC CONTENT DETECTION =====
     const observePageChanges = () => {
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
@@ -202,7 +335,6 @@
                             selector: generateSelector(node)
                         });
                     }
-
                     // Error messages
                     else if (/error|failed|invalid|incorrect|unauthorized|denied|wrong/i.test(text)) {
                         sendEvent('assertion', {
@@ -211,11 +343,9 @@
                             selector: generateSelector(node)
                         });
                     }
-
-                    // Warning messages
-                    else if (/warning|caution|attention|note/i.test(text)) {
-                        sendEvent('assertion', {
-                            type: 'warning_message',
+                    // Loading states
+                    else if (/loading|please wait|processing/i.test(text)) {
+                        sendEvent('wait_state', {
                             text,
                             selector: generateSelector(node)
                         });
@@ -238,11 +368,10 @@
         observePageChanges();
     }
 
-    // ===== SMART NAVIGATION TRACKING =====
+    // ===== 11. NAVIGATION TRACKING =====
     const reportNavigation = () => {
         const url = location.href;
 
-        // Skip cloudflare, analytics, tracking URLs
         if (url.includes('cloudflare.com') ||
             url.includes('analytics') ||
             url.includes('tracking') ||
@@ -259,12 +388,10 @@
         navigationReported = true;
     };
 
-    // Report initial navigation
     if (!navigationReported) {
         setTimeout(reportNavigation, 100);
     }
 
-    // Track SPA navigation
     window.addEventListener('popstate', reportNavigation);
 
     const originalPushState = history.pushState;
@@ -279,14 +406,14 @@
         setTimeout(reportNavigation, 100);
     };
 
-    // ===== NETWORK INTERCEPTION (FETCH) =====
+    // ===== 12. NETWORK INTERCEPTION =====
     const originalFetch = window.fetch;
     window.fetch = async function (input, init = {}) {
         const startTime = performance.now();
         const url = typeof input === 'string' ? input : input?.url || '';
         const method = init.method || 'GET';
 
-        // Skip tracking/analytics URLs
+        // Skip tracking URLs
         if (url.includes('analytics') ||
             url.includes('tracking') ||
             url.includes('gtm') ||
@@ -322,7 +449,43 @@
         }
     };
 
-    // ===== CONSOLE ERROR TRACKING =====
+    // ===== 13. SCROLL DETECTION (throttled) =====
+    let scrollTimer = null;
+    let lastScrollY = window.scrollY;
+
+    window.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+            const currentScrollY = window.scrollY;
+            const scrollDelta = Math.abs(currentScrollY - lastScrollY);
+
+            // Only record significant scrolls (> 100px)
+            if (scrollDelta > 100) {
+                sendEvent('scroll', {
+                    y: Math.round(currentScrollY),
+                    delta: Math.round(scrollDelta),
+                    direction: currentScrollY > lastScrollY ? 'down' : 'up'
+                });
+                lastScrollY = currentScrollY;
+            }
+        }, 500);
+    }, true);
+
+    // ===== 14. KEYBOARD SHORTCUTS =====
+    window.addEventListener('keydown', (e) => {
+        // Only record meaningful shortcuts (Ctrl/Cmd + key)
+        if ((e.ctrlKey || e.metaKey) && e.key && e.key.length === 1) {
+            sendEvent('keyboard_shortcut', {
+                key: e.key.toUpperCase(),
+                ctrl: e.ctrlKey,
+                alt: e.altKey,
+                shift: e.shiftKey,
+                meta: e.metaKey
+            });
+        }
+    }, true);
+
+    // ===== 15. ERROR TRACKING =====
     window.addEventListener('error', (e) => {
         sendEvent('error', {
             message: e.message,
@@ -332,7 +495,6 @@
         });
     });
 
-    // Track unhandled promise rejections
     window.addEventListener('unhandledrejection', (e) => {
         sendEvent('error', {
             message: `Unhandled Promise Rejection: ${e.reason}`,
@@ -341,5 +503,6 @@
         });
     });
 
-    console.log('🎬 QA Copilot Recorder Active (Enhanced)');
+    console.log('🎬 QA Copilot Advanced Recorder Active');
+    console.log('📹 Now capturing: clicks, inputs, selects, file uploads, drag-drop, hovers, and more!');
 })();

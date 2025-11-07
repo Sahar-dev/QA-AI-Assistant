@@ -142,25 +142,117 @@ function setupRecording() {
         }
     });
 
-    // Generate Automated Test
-    // Generate Automated Test
+    // Load saved preferences
+    chrome.storage.local.get(['keepAllAttempts', 'includeNetwork', 'includeAssertions', 'includeHovers', 'includeScrolls'], (data) => {
+        document.getElementById('keep-all-attempts-toggle').checked = data.keepAllAttempts ?? false;
+        document.getElementById('include-network-toggle').checked = data.includeNetwork ?? false;
+        document.getElementById('include-assertions-toggle').checked = data.includeAssertions ?? true;
+        document.getElementById('include-hovers-toggle').checked = data.includeHovers ?? false;
+        document.getElementById('include-scrolls-toggle').checked = data.includeScrolls ?? false;
+    });
+
+    // Save preferences when changed
+    const savePreference = (key, element) => {
+        element?.addEventListener('change', (e) => {
+            chrome.storage.local.set({ [key]: e.target.checked });
+        });
+    };
+
+    savePreference('keepAllAttempts', document.getElementById('keep-all-attempts-toggle'));
+    savePreference('includeNetwork', document.getElementById('include-network-toggle'));
+    savePreference('includeAssertions', document.getElementById('include-assertions-toggle'));
+    savePreference('includeHovers', document.getElementById('include-hovers-toggle'));
+    savePreference('includeScrolls', document.getElementById('include-scrolls-toggle'));
+
+    // Preset Buttons
+    document.getElementById('preset-basic')?.addEventListener('click', () => {
+        document.getElementById('keep-all-attempts-toggle').checked = false;
+        document.getElementById('include-network-toggle').checked = false;
+        document.getElementById('include-assertions-toggle').checked = true;
+        document.getElementById('include-hovers-toggle').checked = false;
+        document.getElementById('include-scrolls-toggle').checked = false;
+
+        chrome.storage.local.set({
+            keepAllAttempts: false,
+            includeNetwork: false,
+            includeAssertions: true,
+            includeHovers: false,
+            includeScrolls: false
+        });
+
+        showToast('✅ Basic preset applied', 'success');
+    });
+
+    document.getElementById('preset-comprehensive')?.addEventListener('click', () => {
+        document.getElementById('keep-all-attempts-toggle').checked = true;
+        document.getElementById('include-network-toggle').checked = true;
+        document.getElementById('include-assertions-toggle').checked = true;
+        document.getElementById('include-hovers-toggle').checked = true;
+        document.getElementById('include-scrolls-toggle').checked = true;
+
+        chrome.storage.local.set({
+            keepAllAttempts: true,
+            includeNetwork: true,
+            includeAssertions: true,
+            includeHovers: true,
+            includeScrolls: true
+        });
+
+        showToast('✅ Comprehensive preset applied', 'success');
+    });
+
+    document.getElementById('preset-minimal')?.addEventListener('click', () => {
+        document.getElementById('keep-all-attempts-toggle').checked = false;
+        document.getElementById('include-network-toggle').checked = false;
+        document.getElementById('include-assertions-toggle').checked = false;
+        document.getElementById('include-hovers-toggle').checked = false;
+        document.getElementById('include-scrolls-toggle').checked = false;
+
+        chrome.storage.local.set({
+            keepAllAttempts: false,
+            includeNetwork: false,
+            includeAssertions: false,
+            includeHovers: false,
+            includeScrolls: false
+        });
+
+        showToast('✅ Minimal preset applied', 'success');
+    });
+
+    // Update the generateCodeBtn click handler:
     generateCodeBtn?.addEventListener("click", async () => {
         const framework = frameworkSelect?.value || "cypress";
         const codeCard = document.getElementById("code-output-card");
         const codeOutput = document.getElementById("code-output");
 
-        // show code card and loader
+        // Get user preferences
+        const prefs = await chrome.storage.local.get([
+            'keepAllAttempts',
+            'includeNetwork',
+            'includeAssertions',
+            'includeHovers',
+            'includeScrolls'
+        ]);
+
         codeCard.classList.remove("hidden");
-        codeOutput.innerHTML =
-            '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
+        codeOutput.innerHTML = '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
 
         try {
             const response = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage(
-                    { action: "generateAutomatedTest", framework },
+                    {
+                        action: "generateAutomatedTest",
+                        framework,
+                        options: {
+                            keepAllAttempts: prefs.keepAllAttempts ?? false,
+                            includeNetworkCalls: prefs.includeNetwork ?? false,
+                            includeAssertions: prefs.includeAssertions ?? true,
+                            includeHovers: prefs.includeHovers ?? false,
+                            includeScrolls: prefs.includeScrolls ?? false
+                        }
+                    },
                     (res) => {
                         if (chrome.runtime.lastError) {
-                            console.error("⏳ runtime.lastError:", chrome.runtime.lastError.message);
                             reject(chrome.runtime.lastError);
                         } else {
                             resolve(res);
@@ -170,7 +262,6 @@ function setupRecording() {
             });
 
             if (response?.success) {
-                // ✅ show the generated code
                 codeOutput.textContent = response.code;
                 showToast("✨ Test code generated!", "success");
                 setTimeout(loadSavedTests, 500);
@@ -182,7 +273,6 @@ function setupRecording() {
             showToast("Generation failed", "error");
         }
     });
-
 
 
     // Copy generated code
