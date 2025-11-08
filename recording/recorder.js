@@ -20,6 +20,7 @@
             chrome.runtime.sendMessage({
                 action: 'recordEvent',
                 payload: {
+                    sessionId: window.__qaSessionId || null,
                     type,
                     data,
                     url: location.href,
@@ -87,13 +88,32 @@
 
         return path.length ? path.join(' > ') : 'body';
     };
+    function scoreSelector(s) {
+        if (!s) return 0;
+        if (s.startsWith('#')) return 100;
+        if (/\[data-test(id)?=/.test(s)) return 90;
+        if (/\[aria-label=/.test(s)) return 80;
+        if (/input|button|select|a/.test(s)) return 60;
+        return 40;
+    }
+
+    // prefer best between multiple candidates
+    function chooseBestSelector(el) {
+        const candidates = [];
+        if (el.id) candidates.push(`#${el.id}`);
+        if (el.dataset.testid) candidates.push(`[data-testid="${el.dataset.testid}"]`);
+        if (el.getAttribute('aria-label')) candidates.push(`[aria-label="${el.getAttribute('aria-label')}"]`);
+        candidates.push(generateSelector(el));
+        return candidates.sort((a, b) => scoreSelector(b) - scoreSelector(a))[0];
+    }
 
     // ===== 1. CLICK HANDLER (Enhanced) =====
     window.addEventListener('click', (e) => {
         const target = e.target;
         const tagName = target.tagName.toLowerCase();
         const text = (target.textContent || '').trim().slice(0, 120);
-        const selector = generateSelector(target);
+        const selector = chooseBestSelector(target);
+
 
         lastClickedElement = target;
         lastClickTime = Date.now();
@@ -134,7 +154,8 @@
             return;
         }
 
-        const selector = generateSelector(target);
+        const selector = chooseBestSelector(target);
+
         clearTimeout(inputTimers[selector]);
 
         inputTimers[selector] = setTimeout(() => {
@@ -167,7 +188,8 @@
         const target = e.target;
 
         if (target.tagName === 'SELECT') {
-            const selector = generateSelector(target);
+            const selector = chooseBestSelector(target);
+
             const selectedOption = target.options[target.selectedIndex];
             const value = selectedOption?.value || '';
             const text = selectedOption?.text || '';
@@ -260,7 +282,8 @@
 
         // Only record if hover lasts > 500ms (intentional hover)
         hoverTimer = setTimeout(() => {
-            const selector = generateSelector(target);
+            const selector = chooseBestSelector(target);
+
             const text = target.textContent?.trim().slice(0, 50) || '';
 
             // Only record if element has interactive content
@@ -320,6 +343,7 @@
     // ===== 10. DYNAMIC CONTENT DETECTION =====
     const observePageChanges = () => {
         const observer = new MutationObserver((mutations) => {
+            if (!window.__qaRecordingActive) return;
             for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
                     if (node.nodeType !== 1) continue;
@@ -507,10 +531,18 @@
         if (req.action === "startRecording") {
             console.log("🎥 Recording activated on page");
             window.__qaRecordingActive = true;
+            window.__qaSessionId = req.sessionId;
+            console.log("📎 Session ID:", window.__qaSessionId);
         }
         if (req.action === "stopRecording") {
             console.log("🛑 Recording stopped on page");
             window.__qaRecordingActive = false;
+
+            // ✅ optional cleanup: stop DOM observer
+            if (window.__qaObserver) {
+                window.__qaObserver.disconnect();
+                window.__qaObserver = null;
+            }
         }
     });
 

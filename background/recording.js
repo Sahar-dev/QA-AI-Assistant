@@ -24,11 +24,12 @@ let lastActivePageTab = null;
 let isRecording = false;
 
 // === Core Recording Logic ===
+let sessionId = null;
 
 export async function startRecordingSession(metadata = {}) {
-    log("🎬 Starting manual recording session");
-    isRecording = true;
-    recordedEvents.length = 0;        // 🔥 clears shared array without breaking reference
+    sessionId = crypto.randomUUID();
+    metadata.sessionId = sessionId;
+    recordedEvents.length = 0;
     recordedEvents.metadata = metadata;
 
     // Tell all active tabs to start listening
@@ -39,7 +40,7 @@ export async function startRecordingSession(metadata = {}) {
     }
 
 
-    return { success: true, message: "Recording started" };
+    return { success: true, sessionId };
 }
 
 export async function stopRecordingSession() {

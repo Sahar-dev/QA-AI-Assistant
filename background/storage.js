@@ -1,22 +1,37 @@
 // background/storage.js
 import { log } from "./logger.js";
-import { generateTestFromEvents } from "./codegen.js";
+import { generateForFramework } from "./codegen.js";
 
 // ===== Centralized shared state =====
 export const sessionBuffers = new Map();
 export const recordedEvents = [];
+// Persist temp events safely (MV3 service worker can sleep)
+async function persistBuffer(tabId, events) {
+    try {
+        await chrome.storage.session.set({ [`buffer_${tabId}`]: events });
+    } catch (err) {
+        console.warn("Session persistence failed:", err);
+    }
+}
+
+export async function getBuffer(tabId) {
+    const data = await chrome.storage.session.get(`buffer_${tabId}`);
+    return data[`buffer_${tabId}`] || [];
+}
 
 // Push individual session events (used by recording.js)
-export function pushSessionEvent(tabId, evt) {
+export async function pushSessionEvent(tabId, evt) {
     if (!tabId) return;
     const now = Date.now();
     const buffer = sessionBuffers.get(tabId) || [];
     buffer.push({ ...evt, t: now });
     sessionBuffers.set(tabId, buffer);
-
-    // Also store globally if recording is active
     recordedEvents.push({ ...evt, t: now });
+
+    // 🔥 keep buffer safe in chrome.storage.session
+    await persistBuffer(tabId, buffer);
 }
+
 
 // Export session data (used by exportSession)
 export function exportSessionData(sender, sendResponse) {
@@ -26,7 +41,7 @@ export function exportSessionData(sender, sendResponse) {
 }
 
 // ===== Save test to storage =====
-export async function saveTestToStorage(framework) {
+export async function saveTestToStorage(framework, options = {}) {
     const data = await chrome.storage.local.get([
         "savedTests",
         "collections",
@@ -39,7 +54,8 @@ export async function saveTestToStorage(framework) {
         framework,
         createdAt: new Date().toISOString(),
         eventCount: recordedEvents.length,
-        code: generateTestFromEvents(framework, recordedEvents),
+        code: generateForFramework(framework || "cypress", recordedEvents, options),
+        // ✅ pass options here
         testName: recordedEvents.metadata?.testName || "Untitled Test",
         testDescription: recordedEvents.metadata?.testDescription || "",
     };

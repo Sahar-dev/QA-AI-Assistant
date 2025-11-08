@@ -73,7 +73,7 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
 
             // ---- Manual Recording Test Generation ----
             case "generateAutomatedTest":
-                saveTestToStorage(req.framework)
+                saveTestToStorage(req.framework, req.options)
                     .then(sendResponse)
                     .catch((err) => sendResponse({ success: false, error: err.message }));
                 return true;

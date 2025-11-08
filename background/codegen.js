@@ -1,3 +1,4 @@
+import { generatePlaywrightTest } from './playwright.js'; // new file coming next
 
 export function generateTestFromEvents(framework, events = [], options = {}) {
     if (!events.length) return "// No recorded events found.";
@@ -86,6 +87,25 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
                 continue;
             }
         }
+        // Skip background clicks on <html> or <body>
+        if (
+            current.type === "click" &&
+            /^(html|body)/i.test(current.data?.selector || "")
+        ) {
+            continue;
+        }
+
+        // Skip duplicate hovers on the same selector within 2 s
+        if (
+            current.type === "hover" &&
+            prev &&
+            prev.type === "hover" &&
+            prev.data?.selector === current.data?.selector &&
+            (current.t - prev.t) < 2000
+        ) {
+            continue;
+        }
+
 
         // Skip hovers if option disabled
         if (current.type === "hover" && !config.includeHovers) {
@@ -151,11 +171,37 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
 
         switch (ev.type) {
             case "navigation":
-                if (url && !url.includes("cloudflare")) {
+                if (!url || url.includes("cloudflare")) break;
+
+                const prevNav = optimized
+                    .slice(0, optimized.indexOf(ev))
+                    .reverse()
+                    .find(e => e.type === "navigation");
+
+                if (prevNav && prevNav.data?.href === url) {
+                    // same page reloaded — likely redirect or failed login
+                    lines.push(`\n    // Step ${step++}: Page reloaded (possible redirect or failed login)`);
+                    lines.push(`    cy.url().should('include', '${new URL(url).pathname}');`);
+
+                    // 🔍 look ahead for error/assertion events within 3 s
+                    const errorEvt = optimized.find(
+                        e =>
+                            e.type === "assertion" &&
+                            e.t >= ev.t &&
+                            e.t <= ev.t + 3000 &&
+                            /(invalid|error|failed|incorrect)/i.test(e.data?.text || "")
+                    );
+                    if (errorEvt) {
+                        const msg = errorEvt.data.text.replace(/'/g, "\\'");
+                        lines.push(`    cy.contains('${msg}').should('be.visible');`);
+                    }
+                } else {
                     lines.push(`\n    // Step ${step++}: Navigate to the application`);
                     lines.push(`    cy.visit('${url}');`);
                 }
                 break;
+
+
 
             case "input":
                 if (v) {
@@ -229,7 +275,8 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
                 break;
 
             case "click":
-                const isSubmit = txt.toLowerCase().includes("login") ||
+                const isSubmit =
+                    txt.toLowerCase().includes("login") ||
                     txt.toLowerCase().includes("submit") ||
                     txt.toLowerCase().includes("sign in") ||
                     txt.toLowerCase().includes("continue");
@@ -238,11 +285,21 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
                 lines.push(`    ${getSelector(ev)}.click();`);
 
                 if (isSubmit && config.includeAssertions) {
-                    lines.push(`\n    // Verify successful submission`);
-                    lines.push(`    cy.url().should('not.include', 'login');`);
+                    const nextNav = optimized.find(e => e.t > ev.t && e.type === "navigation");
+                    if (nextNav && nextNav.data?.href.includes("/user/login")) {
+                        // probably failed login
+                        lines.push(`\n    // Verify failed login`);
+                        lines.push(`    cy.url().should('include', '/user/login');`);
+                        lines.push(`    cy.contains(/invalid|error|incorrect/i).should('be.visible');`);
+                    } else {
+                        // success path
+                        lines.push(`\n    // Verify successful submission`);
+                        lines.push(`    cy.url().should('not.include', 'login');`);
+                    }
                     hasAssertion = true;
                 }
                 break;
+
 
             case "assertion":
                 if (!config.includeAssertions) break;
@@ -321,27 +378,22 @@ function detectTestType(textDump, events) {
 }
 
 // ===== EXPORT FOR DIFFERENT FRAMEWORKS =====
-export function generateForFramework(framework, events) {
-    // This function can be extended to support Playwright, Selenium, etc.
-    switch (framework.toLowerCase()) {
-        case 'cypress':
-            return generateTestFromEvents('cypress', events);
+export function generateForFramework(framework, events, options = {}) {
+    const fw = (framework || '').toLowerCase();
+    switch (fw) {
         case 'playwright':
-            return generatePlaywrightTest(events);
+            return generatePlaywrightTest(events, options);
+        case 'cypress':
+            return generateTestFromEvents('cypress', events, options);
         case 'selenium':
             return generateSeleniumTest(events);
         case 'puppeteer':
             return generatePuppeteerTest(events);
         default:
-            return generateTestFromEvents('cypress', events);
+            return generateTestFromEvents('cypress', events, options);
     }
 }
 
-// Placeholder for other frameworks (to be implemented)
-function generatePlaywrightTest(events) {
-    // Similar structure but with Playwright syntax
-    return "// Playwright test generation coming soon...";
-}
 
 function generateSeleniumTest(events) {
     // Similar structure but with Selenium syntax
