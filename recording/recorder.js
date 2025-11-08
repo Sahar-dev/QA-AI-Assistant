@@ -502,7 +502,19 @@
             line: 0
         });
     });
+    // === Recording toggles from background ===
+    chrome.runtime.onMessage.addListener((req) => {
+        if (req.action === "startRecording") {
+            console.log("🎥 Recording activated on page");
+            window.__qaRecordingActive = true;
+        }
+        if (req.action === "stopRecording") {
+            console.log("🛑 Recording stopped on page");
+            window.__qaRecordingActive = false;
+        }
+    });
 
     console.log('🎬 QA Copilot Advanced Recorder Active');
     console.log('📹 Now capturing: clicks, inputs, selects, file uploads, drag-drop, hovers, and more!');
 })();
+

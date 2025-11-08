@@ -25,7 +25,7 @@
         "<all_urls>"
     ],
     "background": {
-        "service_worker": "background.js",
+        "service_worker": "background/index.js",
         "type": "module"
     },
     "action": {
@@ -68,7 +68,9 @@
                 "sidebar.js",
                 "replay-viewer.js",
                 "timeline-view.js",
-                "recording/*"
+                "recording/*",
+                "ui/*",
+                "core/*"
             ],
             "matches": [
                 "<all_urls>"
