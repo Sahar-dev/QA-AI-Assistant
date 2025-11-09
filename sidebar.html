@@ -25,9 +25,10 @@
                 <i class="fas fa-video"></i>
             </button>
 
-            <button class="nav-btn" data-tab="timeline" data-tooltip="Timeline">
-                <i class="fas fa-clock-rotate-left"></i>
+            <button class="nav-btn" data-tab="bug-reports" data-tooltip="Bug Reports">
+                <i class="fas fa-bug"></i>
             </button>
+
             <button class="nav-btn" data-tab="analyze" data-tooltip="Analyze Page">
                 <i class="fas fa-magnifying-glass-chart"></i>
             </button>
@@ -140,69 +141,86 @@
                     </div>
                 </div>
 
-                <!-- Timeline Tab -->
-                <div class="tab-pane" id="timeline">
+                <!-- Bug Reports Tab -->
+                <div class="tab-pane" id="bug-reports">
+
                     <div class="card">
-
-
-                        <div id="timeline-container" class="timeline-list"></div>
-
-                        <div style="margin-top: 20px; display: flex; gap: 12px;">
-                            <button id="refresh-timeline" class="btn btn-secondary btn-full">
-                                <i class="fas fa-rotate"></i> Refresh
-                            </button>
-                            <button id="report-bug-btn" class="btn btn-danger btn-full">
-                                <i class="fas fa-bug"></i> Report Bug
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Analyze Tab -->
-                <div class="tab-pane" id="analyze">
-                    <div class="quick-grid">
-                        <div class="quick-card" id="analyze-structure">
-                            <div class="quick-card-icon">
-                                <i class="fas fa-sitemap"></i>
-                            </div>
-                            <div class="quick-card-title">Structure</div>
-                            <div class="quick-card-desc">Analyze DOM</div>
-                        </div>
-                        <div class="quick-card" id="analyze-forms">
-                            <div class="quick-card-icon">
-                                <i class="fas fa-wpforms"></i>
-                            </div>
-                            <div class="quick-card-title">Forms</div>
-                            <div class="quick-card-desc">Validate inputs</div>
-                        </div>
-                        <div class="quick-card" id="analyze-links">
-                            <div class="quick-card-icon">
-                                <i class="fas fa-link"></i>
-                            </div>
-                            <div class="quick-card-title">Links</div>
-                            <div class="quick-card-desc">Check navigation</div>
-                        </div>
-                        <div class="quick-card" id="analyze-full">
-                            <div class="quick-card-icon">
-                                <i class="fas fa-rocket"></i>
-                            </div>
-                            <div class="quick-card-title">Full Scan</div>
-                            <div class="quick-card-desc">Complete analysis</div>
-                        </div>
-                    </div>
-
-                    <div class="card" id="analyze-results" style="display:none;">
                         <div class="card-header">
-                            <div class="card-title">
-                                <i class="fas fa-chart-line"></i>
-                                Analysis Report
-                            </div>
-                            <button class="btn btn-ghost btn-sm" id="copy-analysis-btn">
-                                <i class="fas fa-copy"></i> Copy
-                            </button>
+                            <div class="card-title"><i class="fas fa-bug"></i> Bug Reporting</div>
                         </div>
-                        <div class="output" id="analyze-output"></div>
+                        <div class="form-group">
+                            <label class="form-label">Bug Title</label>
+                            <input id="bug-title" placeholder="e.g., Login button not responding" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea id="bug-desc"
+                                placeholder="Steps to reproduce, expected vs actual behavior..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="bug-project">Project</label>
+                            <select id="bug-project" class="form-control">
+                                <option value="">Select Project</option>
+                                <option value="Auth Module">Auth Module</option>
+                                <option value="Dashboard">Dashboard</option>
+                                <option value="Reporting">Reporting</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="bug-feature">Feature</label>
+                            <input type="text" id="bug-feature" class="form-control"
+                                placeholder="e.g., Login Page, Export CSV">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Severity</label>
+                            <select id="bug-severity">
+                                <option>Low</option>
+                                <option>Medium</option>
+                                <option>High</option>
+                                <option>Critical</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="ai-summary-toggle" style="width:16px;height:16px;">
+                            <label for="ai-summary-toggle" style="font-size:13px;color:var(--text-secondary);">
+                                🧠 Generate AI summary for this report
+                            </label>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="include-screenshot-toggle" style="width:16px;height:16px;">
+                            <label for="include-screenshot-toggle" style="font-size:13px;color:var(--text-secondary);">
+                                📸 Include screenshot of current page
+                            </label>
+                        </div>
+
+
+                        <button class="btn btn-primary btn-full" id="create-bug-btn">
+                            <i class="fas fa-paper-plane"></i> Submit Bug Report
+                        </button>
                     </div>
+
+                    <div class="card">
+                        <div class="card-header">
+
+                            <div class="card-title">
+                                <i class="fas fa-chart-bar"></i> Bug Analytics
+                            </div>
+                        </div>
+                        <div id="project-filter" style="margin-bottom:10px;text-align:right;"></div>
+
+                        <div class="card-body" id="bug-analytics" style="padding: 12px; color: #444;">
+                            <div id="bug-summary" style="margin-bottom: 12px;"></div>
+                            <div id="bug-list" class="output">
+                                <div class="output-empty" style="text-align:center;color:#9ca3af;padding:10px;">
+                                    No bug reports submitted yet.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Test Data Tab -->
@@ -747,31 +765,48 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">
-                                <i class="fas fa-puzzle-piece"></i>
-                                Integrations
+                            <div class="card-title"><i class="fas fa-puzzle-piece"></i> Integrations</div>
+                        </div>
+
+                        <!-- GitHub Integration -->
+                        <div class="integration-block">
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-label"><i class="fab fa-github"></i> GitHub</div>
+                                    <div class="setting-desc">Push bugs to GitHub Issues</div>
+                                </div>
+                                <div class="toggle" id="toggle-github">
+                                    <div class="toggle-handle"></div>
+                                </div>
+                            </div>
+
+                            <div class="integration-fields" id="github-settings" style="display:none;margin-top:10px;">
+                                <input id="github-username" placeholder="GitHub Username" class="input-sm" />
+                                <input id="github-repo" placeholder="Repository Name" class="input-sm" />
+                                <input id="github-token" type="password" placeholder="Personal Access Token (ghp_...)"
+                                    class="input-sm" />
                             </div>
                         </div>
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-label">
-                                    <i class="fab fa-jira"></i> Jira
+
+                        <hr style="opacity:0.3;">
+
+                        <!-- Jira Integration -->
+                        <div class="integration-block">
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-label"><i class="fab fa-jira"></i> Jira</div>
+                                    <div class="setting-desc">Create issues in Jira</div>
                                 </div>
-                                <div class="setting-desc">Export to Jira Test Management</div>
-                            </div>
-                            <div class="toggle" id="toggle-jira">
-                                <div class="toggle-handle"></div>
-                            </div>
-                        </div>
-                        <div class="setting-row">
-                            <div class="setting-info">
-                                <div class="setting-label">
-                                    <i class="fab fa-github"></i> GitHub
+                                <div class="toggle" id="toggle-jira">
+                                    <div class="toggle-handle"></div>
                                 </div>
-                                <div class="setting-desc">Push tests to GitHub Issues</div>
                             </div>
-                            <div class="toggle" id="toggle-github">
-                                <div class="toggle-handle"></div>
+
+                            <div class="integration-fields" id="jira-settings" style="display:none;margin-top:10px;">
+                                <input id="jira-domain" placeholder="Domain (example.atlassian.net)" class="input-sm" />
+                                <input id="jira-email" placeholder="Your Jira Email" class="input-sm" />
+                                <input id="jira-token" type="password" placeholder="Jira API Token" class="input-sm" />
+                                <input id="jira-project" placeholder="Project Key (e.g. MAIN)" class="input-sm" />
                             </div>
                         </div>
                     </div>
