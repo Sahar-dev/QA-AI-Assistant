@@ -8,16 +8,16 @@
    <p><em>Supercharge your QA: from recording to test generation — all inside your browser.</em></p>
   
    <p>
-      <a href="https://github.com/Sahar-dev/QA-AI-Assistant/releases"><img src="https://img.shields.io/github/v/release/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="Release"/></a>
-      <a href="https://github.com/Sahar-dev/QA-AI-Assistant/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="License"/></a>
-      <a href="https://github.com/Sahar-dev/QA-AI-Assistant/stargazers"><img src="https://img.shields.io/github/stars/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="Stars"/></a>
-      <a href="https://chrome.google.com/webstore/detail/qa-ai-assistant/" target="_blank"><img src="https://img.shields.io/chrome-web-store/v/qa-ai-assistant?style=flat-square&label=Chrome%20Web%20Store" alt="Chrome Web Store"/></a>
-   </p>
-   <p>
-      <img src="https://img.shields.io/badge/Manifest-V3-blue?style=flat-square"/>
-      <img src="https://img.shields.io/badge/OpenAI-GPT--4-orange?style=flat-square"/>
-      <img src="https://img.shields.io/badge/Google-Gemini-4285F4?style=flat-square"/>
-   </p>
+      <<p>
+    <a href="https://github.com/Sahar-dev/QA-AI-Assistant/releases"><img src="https://img.shields.io/github/v/release/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="Release"/></a>
+    <a href="https://github.com/Sahar-dev/QA-AI-Assistant/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="License"/></a>
+    <a href="https://chrome.google.com/webstore/detail/gdpdjfgmjjfaokfnmgeiicgalkdidjoa" target="_blank"><img src="https://img.shields.io/chrome-web-store/v/gdpdjfgmjjfaokfnmgeiicgalkdidjoa?style=flat-square&label=Chrome%20Web%20Store" alt="Chrome Web Store"/></a>
+</p>
+<p>
+    <img src="https://img.shields.io/badge/Manifest-V3-blue?style=flat-square"/>
+    <img src="https://img.shields.io/badge/OpenAI-GPT--4-orange?style=flat-square"/>
+    <img src="https://img.shields.io/badge/Google-Gemini-4285F4?style=flat-square"/>
+</p>
 </div>
 
 ---
