@@ -7,8 +7,7 @@
    <p>AI-powered browser extension for smarter, faster, and more reliable quality assurance.</p>
    <p><em>Supercharge your QA: from recording to test generation — all inside your browser.</em></p>
   
-   <p>
-      <<p>
+<p>
     <a href="https://github.com/Sahar-dev/QA-AI-Assistant/releases"><img src="https://img.shields.io/github/v/release/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="Release"/></a>
     <a href="https://github.com/Sahar-dev/QA-AI-Assistant/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Sahar-dev/QA-AI-Assistant?style=flat-square" alt="License"/></a>
     <a href="https://chrome.google.com/webstore/detail/gdpdjfgmjjfaokfnmgeiicgalkdidjoa" target="_blank"><img src="https://img.shields.io/chrome-web-store/v/gdpdjfgmjjfaokfnmgeiicgalkdidjoa?style=flat-square&label=Chrome%20Web%20Store" alt="Chrome Web Store"/></a>
