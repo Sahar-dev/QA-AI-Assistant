@@ -9,6 +9,7 @@
         "storage",
         "scripting",
         "tabs",
+        "activeTab",
         "webNavigation",
         "identity",
         "background",
@@ -25,7 +26,7 @@
         "<all_urls>"
     ],
     "background": {
-        "service_worker": "background.js",
+        "service_worker": "background/index.js",
         "type": "module"
     },
     "action": {
@@ -63,7 +64,14 @@
     "web_accessible_resources": [
         {
             "resources": [
-                "icon*.png"
+                "icon*.png",
+                "sidebar.html",
+                "sidebar.js",
+                "replay-viewer.js",
+                "timeline-view.js",
+                "recording/*",
+                "ui/*",
+                "core/*"
             ],
             "matches": [
                 "<all_urls>"

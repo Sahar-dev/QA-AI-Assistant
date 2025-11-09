@@ -202,7 +202,7 @@ async function callOpenAI(apiKey, prompt) {
 }
 
 async function callGemini(apiKey, prompt) {
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
         method: 'POST',
@@ -433,43 +433,468 @@ function runBasicA11yCheck() {
         summary: issues.length === 0 ? 'No major issues found' : `Found ${issues.length} accessibility issues`
     };
 }
-// ===== background.js =====
+
 const SESSION_WINDOW_MS = 5 * 60 * 1000;
 const sessionBuffers = new Map();
-let lastActivePageTab = null; // 🆕 keep track of last page that sent events
+let lastActivePageTab = null;
+let isRecording = false;
+let recordedEvents = [];
 
+// === Utility ===
 function pushSessionEvent(tabId, evt) {
     if (!tabId) return;
-    lastActivePageTab = tabId; // 🧠 remember last page tab
+    lastActivePageTab = tabId;
     const now = Date.now();
     const arr = sessionBuffers.get(tabId) || [];
     arr.push({ ...evt, t: now });
     const cutoff = now - SESSION_WINDOW_MS;
     while (arr.length && arr[0].t < cutoff) arr.shift();
     sessionBuffers.set(tabId, arr);
+
+    if (isRecording) {
+        recordedEvents.push({ ...evt, t: now });
+    }
 }
 
-chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
-    console.log("📩 [Background] Message:", req.action, "from tab", sender?.tab?.id);
+function generateTestFromEvents(framework, events = [], options = {}) {
+    if (!events.length) return "// No recorded events found.";
 
-    if (req.action === "recordEvent") {
-        const tabId = sender?.tab?.id || req.tabId;
-        pushSessionEvent(tabId, req.payload);
-        return; // fire-and-forget
+    const meta = events.metadata || {};
+    const fw = framework?.toLowerCase() || "cypress";
+
+    const config = {
+        keepAllAttempts: options.keepAllAttempts ?? false,
+        includeNetworkCalls: options.includeNetworkCalls ?? false,
+        includeAssertions: options.includeAssertions ?? true,
+        includeHovers: options.includeHovers ?? false,
+        includeScrolls: options.includeScrolls ?? false,
+        ...options
+    };
+
+    // ===== 1. CLEAN & SORT =====
+    let cleaned = events.filter(e => {
+        if (!e || !e.type) return false;
+        if (['keydown', 'keyup', 'mouse_move'].includes(e.type)) return false;
+
+        const selector = e.data?.selector || "";
+        if (selector.startsWith("> body") || selector === "body") return false;
+
+        return true;
+    });
+
+    // Sort: navigation first
+    const navEvent = cleaned.find(e => e.type === "navigation" && !e.data?.href?.includes("cloudflare"));
+    const otherEvents = cleaned.filter(e => e !== navEvent);
+
+    if (navEvent) {
+        cleaned = [navEvent, ...otherEvents];
     }
 
-    if (req.action === "exportSession") {
-        // pick best tab candidate
-        let tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
-        if (!tabId) {
-            const keys = Array.from(sessionBuffers.keys());
-            tabId = keys[keys.length - 1];
-            console.log("⚙️ [Background] ultimate fallback to", tabId);
+    // ===== 2. MERGE CONSECUTIVE INPUTS =====
+    const merged = [];
+    for (const ev of cleaned) {
+        const last = merged[merged.length - 1];
+
+        if (ev.type === "input" &&
+            last &&
+            last.type === "input" &&
+            ev.data?.selector === last.data?.selector) {
+            last.data.value = ev.data.value;
+            last.t = ev.t;
+            continue;
         }
 
-        const data = sessionBuffers.get(tabId) || [];
-        console.log("📤 [Background] Sending", data.length, "events for tab", tabId);
-        sendResponse({ success: true, data, length: data.length });
-        return true; // async
+        merged.push(ev);
     }
+
+    // ===== 3. REMOVE REDUNDANT ACTIONS =====
+    const optimized = [];
+    for (let i = 0; i < merged.length; i++) {
+        const current = merged[i];
+        const next = merged[i + 1];
+        const prev = optimized[optimized.length - 1];
+
+        // Skip click on form field if next is input
+        if (current.type === "click" &&
+            next &&
+            next.type === "input" &&
+            current.data?.selector === next.data?.selector) {
+            continue;
+        }
+
+        // Skip duplicate clicks within 2 seconds
+        if (current.type === "click" &&
+            prev &&
+            prev.type === "click" &&
+            current.data?.selector === prev.data?.selector &&
+            current.data?.text === prev.data?.text) {
+            const timeDiff = (current.t || 0) - (prev.t || 0);
+            if (timeDiff < 2000) continue;
+        }
+
+        // Skip form_submit if preceded by submit button click
+        if (current.type === "form_submit" && prev && prev.type === "click") {
+            const prevText = (prev.data?.text || "").toLowerCase();
+            if (prevText.includes("login") ||
+                prevText.includes("submit") ||
+                prevText.includes("sign in") ||
+                prevText.includes("sign up") ||
+                prevText.includes("continue")) {
+                continue;
+            }
+        }
+
+        // Skip hovers if option disabled
+        if (current.type === "hover" && !config.includeHovers) {
+            continue;
+        }
+
+        // Skip scrolls if option disabled
+        if (current.type === "scroll" && !config.includeScrolls) {
+            continue;
+        }
+
+        optimized.push(current);
+    }
+
+    // ===== 4. BUILD SELECTORS =====
+    const getSelector = (ev) => {
+        const s = ev.data?.selector || "";
+        const txt = ev.data?.text?.trim();
+
+        if (txt && txt.length < 50 && txt.length > 0) {
+            return `cy.contains('${txt.replace(/'/g, "\\'")}')`;
+        }
+
+        if (/^#[\w-]+$/.test(s)) return `cy.get('${s}')`;
+        if (s.includes("[data-testid")) return `cy.get('${s}')`;
+        if (s.includes("[aria-label")) return `cy.get('${s}')`;
+
+        const parts = s.split(' > ');
+        if (parts.length > 2) {
+            return `cy.get('${parts.slice(-2).join(' > ')}')`;
+        }
+
+        return `cy.get('${s}')`;
+    };
+
+    // ===== 5. DETECT TEST TYPE =====
+    const textDump = optimized.map(e => e.data?.text || "").join(" ").toLowerCase();
+    const testName = meta.testName || detectTestType(textDump, optimized);
+    const testDesc = meta.testDescription || "should perform recorded actions successfully";
+
+    // ===== 6. GENERATE CODE =====
+    const lines = [];
+
+    lines.push("/**");
+    lines.push(` * Test Name: ${testName}`);
+    lines.push(` * Description: ${testDesc}`);
+    lines.push(` * Framework: ${fw}`);
+    lines.push(` * Events Recorded: ${optimized.length}`);
+    lines.push(` * Generated: ${new Date().toLocaleString()}`);
+    lines.push(" */\n");
+
+    lines.push(`describe('${testName}', () => {`);
+    lines.push(`  it('${testDesc}', () => {`);
+
+    let step = 1;
+    let hasAssertion = false;
+
+    for (const ev of optimized) {
+        const s = ev.data?.selector || "";
+        const v = (ev.data?.value || "").replace(/'/g, "\\'");
+        const url = ev.data?.href || "";
+        const txt = (ev.data?.text || "").trim();
+
+        switch (ev.type) {
+            case "navigation":
+                if (url && !url.includes("cloudflare")) {
+                    lines.push(`\n    // Step ${step++}: Navigate to the application`);
+                    lines.push(`    cy.visit('${url}');`);
+                }
+                break;
+
+            case "input":
+                if (v) {
+                    const fieldName = ev.data?.label || ev.data?.placeholder || ev.data?.name || s;
+                    lines.push(`\n    // Step ${step++}: Enter "${v}" in ${fieldName}`);
+                    lines.push(`    ${getSelector(ev)}.clear().type('${v}');`);
+                }
+                break;
+
+            case "select":
+                lines.push(`\n    // Step ${step++}: Select "${ev.data?.text || ev.data?.value}" from dropdown`);
+                lines.push(`    ${getSelector(ev)}.select('${ev.data?.value}');`);
+                break;
+
+            case "checkbox":
+                const checkAction = ev.data?.checked ? 'check' : 'uncheck';
+                lines.push(`\n    // Step ${step++}: ${checkAction.charAt(0).toUpperCase() + checkAction.slice(1)} "${ev.data?.label || s}"`);
+                lines.push(`    ${getSelector(ev)}.${checkAction}();`);
+                break;
+
+            case "radio":
+                lines.push(`\n    // Step ${step++}: Select radio button "${ev.data?.label || ev.data?.value}"`);
+                lines.push(`    ${getSelector(ev)}.check();`);
+                break;
+
+            case "file_upload":
+                const fileNames = ev.data?.files?.map(f => f.name).join(', ') || 'file.txt';
+                lines.push(`\n    // Step ${step++}: Upload file(s): ${fileNames}`);
+                lines.push(`    ${getSelector(ev)}.selectFile('cypress/fixtures/${fileNames}');`);
+                break;
+
+            case "drag_drop":
+                lines.push(`\n    // Step ${step++}: Drag "${ev.data?.sourceText}" to "${ev.data?.targetText}"`);
+                lines.push(`    cy.get('${ev.data?.source}').drag('${ev.data?.target}');`);
+                break;
+
+            case "hover":
+                if (config.includeHovers) {
+                    lines.push(`\n    // Step ${step++}: Hover over "${txt}"`);
+                    lines.push(`    ${getSelector(ev)}.trigger('mouseover');`);
+                }
+                break;
+
+            case "double_click":
+                lines.push(`\n    // Step ${step++}: Double-click "${txt}"`);
+                lines.push(`    ${getSelector(ev)}.dblclick();`);
+                break;
+
+            case "right_click":
+                lines.push(`\n    // Step ${step++}: Right-click "${txt}"`);
+                lines.push(`    ${getSelector(ev)}.rightclick();`);
+                break;
+
+            case "scroll":
+                if (config.includeScrolls) {
+                    lines.push(`\n    // Step ${step++}: Scroll ${ev.data?.direction || 'down'}`);
+                    lines.push(`    cy.scrollTo(0, ${ev.data?.y || 500});`);
+                }
+                break;
+
+            case "keyboard_shortcut":
+                const keys = [];
+                if (ev.data?.ctrl) keys.push('ctrl');
+                if (ev.data?.meta) keys.push('cmd');
+                if (ev.data?.alt) keys.push('alt');
+                if (ev.data?.shift) keys.push('shift');
+                keys.push(ev.data?.key?.toLowerCase() || 'a');
+
+                lines.push(`\n    // Step ${step++}: Press ${keys.join('+')} shortcut`);
+                lines.push(`    cy.get('body').type('{${keys.join('+')}');`);
+                break;
+
+            case "click":
+                const isSubmit = txt.toLowerCase().includes("login") ||
+                    txt.toLowerCase().includes("submit") ||
+                    txt.toLowerCase().includes("sign in") ||
+                    txt.toLowerCase().includes("continue");
+
+                lines.push(`\n    // Step ${step++}: Click "${txt || s}"`);
+                lines.push(`    ${getSelector(ev)}.click();`);
+
+                if (isSubmit && config.includeAssertions) {
+                    lines.push(`\n    // Verify successful submission`);
+                    lines.push(`    cy.url().should('not.include', 'login');`);
+                    hasAssertion = true;
+                }
+                break;
+
+            case "assertion":
+                if (!config.includeAssertions) break;
+
+                const msg = ev.data?.text?.replace(/'/g, "\\'") || "";
+                const assertType = ev.data?.type || "";
+
+                if (msg) {
+                    lines.push(`\n    // Step ${step++}: Verify ${assertType.replace('_', ' ')}`);
+                    lines.push(`    cy.contains('${msg}').should('be.visible');`);
+                    hasAssertion = true;
+                }
+                break;
+
+            case "wait_state":
+                lines.push(`\n    // Step ${step++}: Wait for loading to complete`);
+                lines.push(`    cy.contains('${ev.data?.text}').should('not.exist');`);
+                break;
+
+            case "fetch":
+                if (!config.includeNetworkCalls) break;
+
+                const method = ev.data?.method || "GET";
+                const apiUrl = ev.data?.url || "";
+
+                if (apiUrl && !apiUrl.includes("analytics")) {
+                    const endpoint = apiUrl.split('/').pop() || 'api';
+                    lines.push(`\n    // Step ${step++}: Wait for API response`);
+                    lines.push(`    cy.intercept('${method}', '*${endpoint}*').as('apiRequest');`);
+                    lines.push(`    cy.wait('@apiRequest');`);
+                }
+                break;
+        }
+    }
+
+    // Final steps
+    lines.push(`\n    // Step ${step++}: Wait for page stability`);
+    lines.push(`    cy.wait(500);`);
+
+    if (!hasAssertion && config.includeAssertions) {
+        lines.push(`\n    // Step ${step++}: Verify test completion`);
+        lines.push(`    cy.url().should('not.include', 'error');`);
+    }
+
+    lines.push(`    cy.screenshot('${testName.toLowerCase().replace(/\s+/g, "_")}');`);
+
+    lines.push("  });");
+    lines.push("});");
+
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function detectTestType(textDump, events) {
+    if (textDump.includes("login") || textDump.includes("sign in")) {
+        return "Login Flow";
+    }
+    if (textDump.includes("register") || textDump.includes("sign up")) {
+        return "Registration Flow";
+    }
+    if (textDump.includes("checkout") || textDump.includes("payment")) {
+        return "Checkout Flow";
+    }
+    if (events.some(e => e.type === "file_upload")) {
+        return "File Upload Flow";
+    }
+    if (events.some(e => e.type === "drag_drop")) {
+        return "Drag & Drop Interaction";
+    }
+    if (events.some(e => e.type === "select")) {
+        return "Form Selection Flow";
+    }
+    if (events.filter(e => e.type === "navigation").length > 1) {
+        return "Multi-Page Navigation";
+    }
+    return "User Flow";
+}
+
+// ===== EXPORT FOR DIFFERENT FRAMEWORKS =====
+function generateForFramework(framework, events) {
+    // This function can be extended to support Playwright, Selenium, etc.
+    switch (framework.toLowerCase()) {
+        case 'cypress':
+            return generateTestFromEvents('cypress', events);
+        case 'playwright':
+            return generatePlaywrightTest(events);
+        case 'selenium':
+            return generateSeleniumTest(events);
+        case 'puppeteer':
+            return generatePuppeteerTest(events);
+        default:
+            return generateTestFromEvents('cypress', events);
+    }
+}
+
+// Placeholder for other frameworks (to be implemented)
+function generatePlaywrightTest(events) {
+    // Similar structure but with Playwright syntax
+    return "// Playwright test generation coming soon...";
+}
+
+function generateSeleniumTest(events) {
+    // Similar structure but with Selenium syntax
+    return "// Selenium test generation coming soon...";
+}
+
+function generatePuppeteerTest(events) {
+    // Similar structure but with Puppeteer syntax
+    return "// Puppeteer test generation coming soon...";
+}
+
+
+
+
+// === Message Handlers ===
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+    // --- lightweight events (synchronous) ---
+    if (req.action === "recordEvent") {
+        pushSessionEvent(sender?.tab?.id || req.tabId, req.payload);
+        return; // immediate, no async
+    }
+
+    if (req.action === "startRecordingSession") {
+        console.log("🎬 Manual recording started");
+        isRecording = true;
+        recordedEvents = [];
+        recordedEvents.metadata = req.metadata || {};
+        sendResponse({ success: true });
+        return true;
+    }
+
+    if (req.action === "getRecordingState") {
+        sendResponse({ success: true, eventCount: recordedEvents.length, isRecording });
+        return true;
+    }
+
+    if (req.action === "stopRecordingSession") {
+        console.log("🛑 Manual recording stopped, total:", recordedEvents.length);
+        isRecording = false;
+        sendResponse({ success: true, data: recordedEvents });
+        return true;
+    }
+
+    // --- heavy async work wrapped in a Promise ---
+    if (req.action === "generateAutomatedTest" || req.action === "exportSession") {
+        (async () => {
+            try {
+                if (req.action === "generateAutomatedTest") {
+                    console.log("🧠 Generating test code for framework:", req.framework);
+                    const code = generateTestFromEvents(req.framework, recordedEvents);
+                    const data = await chrome.storage.local.get(['savedTests', 'collections', 'activeCollection']);
+                    const existing = data.savedTests || [];
+                    const collections = data.collections || [];
+                    const activeId = data.activeCollection;
+
+                    // Create the new test object
+                    const testData = {
+                        id: Date.now(),
+                        framework: req.framework,
+                        createdAt: new Date().toISOString(),
+                        eventCount: recordedEvents.length,
+                        code,
+                        testName: recordedEvents?.metadata?.testName || "Untitled Test",
+                        testDescription: recordedEvents?.metadata?.testDescription || ""
+                    };
+
+                    // Save globally
+                    existing.push(testData);
+                    await chrome.storage.local.set({ savedTests: existing });
+
+                    // Also attach to active collection if one is selected
+                    if (activeId) {
+                        const collection = collections.find(c => c.id === activeId);
+                        if (collection) {
+                            collection.tests = collection.tests || [];
+                            collection.tests.push(testData);
+                            await chrome.storage.local.set({ collections });
+                            console.log(`📁 Test added to collection: ${collection.name}`);
+                        }
+                    }
+
+                    sendResponse({ success: true, code });
+                } else if (req.action === "exportSession") {
+                    const tabId = req.tabId || sender?.tab?.id || lastActivePageTab;
+                    const data = sessionBuffers.get(tabId) || [];
+                    sendResponse({ success: true, data });
+                }
+            } catch (err) {
+                console.error("❌ Background async error:", err);
+                sendResponse({ success: false, error: err.message });
+            }
+        })();
+        return true; // keep port alive for async
+    }
+
+    // --- unknown ---
+    sendResponse({ success: false, error: "Unknown action" });
+    return true;
 });

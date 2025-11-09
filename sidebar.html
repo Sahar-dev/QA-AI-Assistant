@@ -4,573 +4,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QA Copilot</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg: #0f0f14;
-            --bg-elevated: #1a1a24;
-            --bg-card: #242433;
-            --primary: #8b5cf6;
-            --primary-hover: #a78bfa;
-            --secondary: #06b6d4;
-            --success: #10b981;
-            --text: #e5e7eb;
-            --text-muted: #9ca3af;
-            --border: rgba(139, 92, 246, 0.2);
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-
-        /* Compact Sidebar - 50px instead of 72px */
-        .sidebar {
-            width: 50px;
-            background: var(--bg-elevated);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            padding: 12px 6px;
-            gap: 8px;
-        }
-
-        .nav-btn {
-            width: 38px;
-            height: 38px;
-            border: none;
-            background: transparent;
-            border-radius: 8px;
-            color: var(--text-muted);
-            font-size: 18px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .nav-btn:hover {
-            background: rgba(139, 92, 246, 0.1);
-            color: var(--primary-hover);
-        }
-
-        .nav-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        .nav-btn::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            left: 55px;
-            background: var(--bg-card);
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            border: 1px solid var(--border);
-        }
-
-        .nav-btn:hover::after {
-            opacity: 1;
-        }
-
-        /* Main Content */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .header {
-            padding: 16px 20px;
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .icon-btn {
-            width: 32px;
-            height: 32px;
-            border: 1px solid var(--border);
-            background: transparent;
-            border-radius: 6px;
-            color: var(--text-muted);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .icon-btn:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--primary);
-            color: var(--primary-hover);
-        }
-
-        .content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .content::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .content::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 4px;
-        }
-
-        /* Tab Panes */
-        .tab-pane {
-            display: none;
-        }
-
-        .tab-pane.active {
-            display: block;
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Cards - Reduced padding */
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .card-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        /* Form Elements - Compact */
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 11px;
-            font-weight: 500;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }
-
-        textarea,
-        input,
-        select {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px;
-            color: var(--text);
-            font-size: 13px;
-            font-family: inherit;
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-            font-family: 'Courier New', monospace;
-            line-height: 1.5;
-        }
-
-        textarea:focus,
-        input:focus,
-        select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
-        }
-
-        .input-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        /* Buttons - Better hierarchy */
-        .btn {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 13px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--secondary);
-            border: 1px solid var(--secondary);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(6, 182, 212, 0.1);
-        }
-
-        .btn-ghost {
-            background: transparent;
-            color: var(--text-muted);
-            border: 1px solid var(--border);
-        }
-
-        .btn-ghost:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .btn-full {
-            width: 100%;
-        }
-
-        /* Output Area - Better contrast */
-        .output {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.6;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .output::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .output::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 3px;
-        }
-
-        .output-empty {
-            color: var(--text-muted);
-            text-align: center;
-            padding: 40px 20px;
-            font-size: 13px;
-        }
-
-        /* Loading State */
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 30px;
-            color: var(--text-muted);
-        }
-
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(139, 92, 246, 0.2);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            animation: slideIn 0.3s;
-            z-index: 1000;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-            }
-
-            to {
-                transform: translateX(0);
-            }
-        }
-
-        .toast.success {
-            border-left: 3px solid var(--success);
-        }
-
-        .toast.error {
-            border-left: 3px solid #ef4444;
-        }
-
-        /* Quick Actions Grid */
-        .quick-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .quick-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .quick-card:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .quick-card-icon {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .quick-card-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-
-        .quick-card-desc {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        /* Export Options */
-        .export-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 12px 0;
-        }
-
-        .export-btn {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            cursor: pointer;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-muted);
-            transition: all 0.2s;
-        }
-
-        .export-btn:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: var(--primary);
-            color: var(--text);
-        }
-
-        .export-btn.active {
-            background: rgba(139, 92, 246, 0.2);
-            border-color: var(--primary);
-            color: var(--primary-hover);
-        }
-
-        /* Settings Toggle */
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .setting-row:last-child {
-            border-bottom: none;
-        }
-
-        .setting-info {
-            flex: 1;
-        }
-
-        .setting-label {
-            font-size: 13px;
-            color: var(--text);
-            margin-bottom: 2px;
-        }
-
-        .setting-desc {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .toggle {
-            width: 44px;
-            height: 24px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            position: relative;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .toggle.active {
-            background: var(--primary);
-        }
-
-        .toggle-handle {
-            width: 18px;
-            height: 18px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            transition: transform 0.2s;
-        }
-
-        .toggle.active .toggle-handle {
-            transform: translateX(20px);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .badge-success {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--success);
-        }
-
-        .badge-warning {
-            background: rgba(251, 191, 36, 0.15);
-            color: #fbbf24;
-        }
-    </style>
+    <title>QA Copilot Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="sidebar.css">
 </head>
 
 <body>
     <div class="container">
-        <!-- Compact Sidebar -->
+        <!-- Premium Sidebar -->
         <div class="sidebar">
-            <button class="nav-btn active" data-tab="test-cases" data-tooltip="Test Cases">📝</button>
-            <button class="nav-btn" data-tab="timeline">🕒</button>
+            <div class="logo">
+                <i class="fas fa-robot"></i>
+            </div>
 
-            <button class="nav-btn" data-tab="analyze" data-tooltip="Analyze Page">🔍</button>
-            <button class="nav-btn" data-tab="test-data" data-tooltip="Test Data">📊</button>
-            <button class="nav-btn" data-tab="accessibility" data-tooltip="Accessibility">♿</button>
-            <button class="nav-btn" data-tab="export" data-tooltip="Export">📤</button>
-            <button class="nav-btn" data-tab="settings" data-tooltip="Settings">⚙️</button>
+            <button class="nav-btn active" data-tab="test-cases" data-tooltip="Test Cases">
+                <i class="fas fa-file-contract"></i>
+            </button>
+            <button class="nav-btn" data-tab="manual-tests" data-tooltip="Manual Recording">
+                <i class="fas fa-video"></i>
+            </button>
+
+            <button class="nav-btn" data-tab="bug-reports" data-tooltip="Bug Reports">
+                <i class="fas fa-bug"></i>
+            </button>
+
+            <button class="nav-btn" data-tab="analyze" data-tooltip="Analyze Page">
+                <i class="fas fa-magnifying-glass-chart"></i>
+            </button>
+            <button class="nav-btn" data-tab="test-data" data-tooltip="Test Data">
+                <i class="fas fa-database"></i>
+            </button>
+
+            <div class="nav-divider"></div>
+
+            <button class="nav-btn" data-tab="accessibility" data-tooltip="Accessibility">
+                <i class="fas fa-universal-access"></i>
+            </button>
+            <button class="nav-btn" data-tab="export" data-tooltip="Export">
+                <i class="fas fa-file-export"></i>
+            </button>
+            <button class="nav-btn" data-tab="settings" data-tooltip="Settings">
+                <i class="fas fa-gear"></i>
+            </button>
         </div>
 
         <!-- Main Content -->
         <div class="main">
             <div class="header">
-                <h1 id="header-title">Test Case Generator</h1>
+                <div class="header-left">
+                    <h1 id="header-title">Test Case Generator</h1>
+                    <span class="status-badge badge-success">
+                        <i class="fas fa-circle-check"></i> Active
+                    </span>
+                </div>
                 <div class="header-actions">
-                    <button class="icon-btn" id="save-session-btn" title="Save last 5 minutes">💾</button>
-                    <button class="icon-btn" id="refresh-btn" title="Refresh">🔄</button>
-                    <button class="icon-btn" id="help-btn" title="Help">❓</button>
+                    <button class="icon-btn" id="save-session-btn" title="Save Session">
+                        <i class="fas fa-floppy-disk"></i>
+                    </button>
+                    <button class="icon-btn" id="refresh-btn" title="Refresh">
+                        <i class="fas fa-rotate"></i>
+                    </button>
+                    <button class="icon-btn" id="help-btn" title="Help">
+                        <i class="fas fa-circle-question"></i>
+                    </button>
                 </div>
             </div>
 
@@ -579,17 +76,24 @@
                 <div class="tab-pane active" id="test-cases">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Feature Description</div>
-                            <button class="btn btn-ghost btn-sm" id="extract-btn">📄 Extract</button>
+                            <div class="card-title">
+                                <i class="fas fa-sparkles"></i>
+                                Feature Description
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="extract-btn">
+                                <i class="fas fa-wand-magic-sparkles"></i> Extract
+                            </button>
                         </div>
-                        <textarea id="feature-input" placeholder="Describe your feature or paste user story...
-
-Example: Login form with email/password validation"></textarea>
+                        <textarea id="feature-input"
+                            placeholder="Describe your feature or paste user story...&#10;&#10;Example: Login form with email/password validation"></textarea>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Configuration</div>
+                            <div class="card-title">
+                                <i class="fas fa-sliders"></i>
+                                Configuration
+                            </div>
                         </div>
                         <div class="input-row">
                             <div class="form-group">
@@ -611,64 +115,127 @@ Example: Login form with email/password validation"></textarea>
                                 </select>
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-full" id="generate-btn">✨ Generate Test Cases</button>
+
+                        <button class="btn btn-primary btn-full" id="generate-btn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Test Cases
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Generated Tests</div>
-                            <button class="btn btn-ghost" id="copy-tests-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-list-check"></i>
+                                Generated Tests
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-tests-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="test-output">
-                            <div class="output-empty">Generated test cases will appear here...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-sparkles"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Generated test cases will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Analyze Tab -->
-                <div class="tab-pane" id="analyze">
-                    <div class="quick-grid">
-                        <div class="quick-card" id="analyze-structure">
-                            <div class="quick-card-icon">🏗️</div>
-                            <div class="quick-card-title">Structure</div>
-                            <div class="quick-card-desc">Analyze DOM</div>
+                <!-- Bug Reports Tab -->
+                <div class="tab-pane" id="bug-reports">
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-bug"></i> Bug Reporting</div>
                         </div>
-                        <div class="quick-card" id="analyze-forms">
-                            <div class="quick-card-icon">📝</div>
-                            <div class="quick-card-title">Forms</div>
-                            <div class="quick-card-desc">Validate inputs</div>
+                        <div class="form-group">
+                            <label class="form-label">Bug Title</label>
+                            <input id="bug-title" placeholder="e.g., Login button not responding" />
                         </div>
-                        <div class="quick-card" id="analyze-links">
-                            <div class="quick-card-icon">🔗</div>
-                            <div class="quick-card-title">Links</div>
-                            <div class="quick-card-desc">Check navigation</div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea id="bug-desc"
+                                placeholder="Steps to reproduce, expected vs actual behavior..."></textarea>
                         </div>
-                        <div class="quick-card" id="analyze-full">
-                            <div class="quick-card-icon">🚀</div>
-                            <div class="quick-card-title">Full Scan</div>
-                            <div class="quick-card-desc">Complete analysis</div>
+                        <div class="form-group">
+                            <label for="bug-project">Project</label>
+                            <select id="bug-project" class="form-control">
+                                <option value="">Select Project</option>
+                                <option value="Auth Module">Auth Module</option>
+                                <option value="Dashboard">Dashboard</option>
+                                <option value="Reporting">Reporting</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="bug-feature">Feature</label>
+                            <input type="text" id="bug-feature" class="form-control"
+                                placeholder="e.g., Login Page, Export CSV">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Severity</label>
+                            <select id="bug-severity">
+                                <option>Low</option>
+                                <option>Medium</option>
+                                <option>High</option>
+                                <option>Critical</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="ai-summary-toggle" style="width:16px;height:16px;">
+                            <label for="ai-summary-toggle" style="font-size:13px;color:var(--text-secondary);">
+                                🧠 Generate AI summary for this report
+                            </label>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="include-screenshot-toggle" style="width:16px;height:16px;">
+                            <label for="include-screenshot-toggle" style="font-size:13px;color:var(--text-secondary);">
+                                📸 Include screenshot of current page
+                            </label>
+                        </div>
+
+
+                        <button class="btn btn-primary btn-full" id="create-bug-btn">
+                            <i class="fas fa-paper-plane"></i> Submit Bug Report
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+
+                            <div class="card-title">
+                                <i class="fas fa-chart-bar"></i> Bug Analytics
+                            </div>
+                        </div>
+                        <div id="project-filter" style="margin-bottom:10px;text-align:right;"></div>
+
+                        <div class="card-body" id="bug-analytics" style="padding: 12px; color: #444;">
+                            <div id="bug-summary" style="margin-bottom: 12px;"></div>
+                            <div id="bug-list" class="output">
+                                <div class="output-empty" style="text-align:center;color:#9ca3af;padding:10px;">
+                                    No bug reports submitted yet.
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card" id="analyze-results" style="display:none;">
-                        <div class="card-header">
-                            <div class="card-title">Analysis Report</div>
-                            <button class="btn btn-ghost" id="copy-analysis-btn">📋 Copy</button>
-                        </div>
-                        <div class="output" id="analyze-output"></div>
-                    </div>
                 </div>
 
                 <!-- Test Data Tab -->
                 <div class="tab-pane" id="test-data">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Data Schema</div>
+                            <div class="card-title">
+                                <i class="fas fa-code"></i>
+                                Data Schema
+                            </div>
                         </div>
                         <textarea id="data-schema"
                             placeholder='{"name": "string", "email": "email", "age": "number"}'>{"name": "string", "email": "email", "age": "number"}</textarea>
 
-                        <div class="input-row" style="margin-top: 12px;">
+                        <div class="input-row" style="margin-top: 16px;">
                             <div class="form-group">
                                 <label class="form-label">Records</label>
                                 <input type="number" id="record-count" value="5" min="1" max="100">
@@ -682,58 +249,64 @@ Example: Login form with email/password validation"></textarea>
                                 </select>
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-full" id="generate-data-btn">📊 Generate Data</button>
+                        <button class="btn btn-primary btn-full" id="generate-data-btn">
+                            <i class="fas fa-chart-simple"></i> Generate Data
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Generated Data</div>
-                            <button class="btn btn-ghost" id="copy-data-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-table"></i>
+                                Generated Data
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-data-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="data-output">
-                            <div class="output-empty">Data will appear here...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-database"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Data will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Timeline Tab -->
-                <div class="tab-pane" id="timeline">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">Session Timeline</div>
-                        </div>
-
-                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-                            Displays the last 5 minutes of recorded user actions, API calls, and console logs.
-                        </p>
-
-                        <div id="timeline-container" class="timeline-list"></div>
-
-                        <div style="margin-top: 10px; display: flex; gap: 8px;">
-                            <button id="refresh-timeline" class="btn btn-secondary btn-full">🔄 Refresh</button>
-                            <button id="report-bug-btn" class="btn btn-danger btn-full">🐛 Report Bug</button>
-                        </div>
-                    </div>
-                </div>
                 <!-- Accessibility Tab -->
                 <div class="tab-pane" id="accessibility">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Accessibility Audit</div>
+                            <div class="card-title">
+                                <i class="fas fa-shield-halved"></i>
+                                Accessibility Audit
+                            </div>
                         </div>
-                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
                             Scan the current page for WCAG compliance issues.
                         </p>
-                        <button class="btn btn-primary btn-full" id="run-a11y-btn">🚀 Run Audit</button>
+                        <button class="btn btn-primary btn-full" id="run-a11y-btn">
+                            <i class="fas fa-play"></i> Run Audit
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Results</div>
-                            <button class="btn btn-ghost" id="copy-a11y-btn">📋 Copy</button>
+                            <div class="card-title">
+                                <i class="fas fa-clipboard-check"></i>
+                                Results
+                            </div>
+                            <button class="btn btn-ghost btn-sm" id="copy-a11y-btn">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
                         </div>
                         <div class="output" id="a11y-output">
-                            <div class="output-empty">Results will appear here...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-universal-access"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Results will appear here...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -742,25 +315,413 @@ Example: Login form with email/password validation"></textarea>
                 <div class="tab-pane" id="export">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Export Format</div>
+                            <div class="card-title">
+                                <i class="fas fa-file-export"></i>
+                                Export Format
+                            </div>
                         </div>
                         <div class="export-grid">
-                            <div class="export-btn" data-format="cypress">Cypress</div>
-                            <div class="export-btn" data-format="jest">Jest</div>
-                            <div class="export-btn" data-format="postman">Postman</div>
-                            <div class="export-btn" data-format="playwright">Playwright</div>
-                            <div class="export-btn" data-format="testrail">TestRail</div>
-                            <div class="export-btn" data-format="html">HTML</div>
+                            <div class="export-btn" data-format="cypress">
+                                <i class="fas fa-circle-nodes"></i><br>Cypress
+                            </div>
+                            <div class="export-btn" data-format="jest">
+                                <i class="fab fa-js"></i><br>Jest
+                            </div>
+                            <div class="export-btn" data-format="postman">
+                                <i class="fas fa-paper-plane"></i><br>Postman
+                            </div>
+                            <div class="export-btn" data-format="playwright">
+                                <i class="fas fa-masks-theater"></i><br>Playwright
+                            </div>
+                            <div class="export-btn" data-format="testrail">
+                                <i class="fas fa-train"></i><br>TestRail
+                            </div>
+                            <div class="export-btn" data-format="html">
+                                <i class="fab fa-html5"></i><br>HTML
+                            </div>
                         </div>
-                        <button class="btn btn-primary btn-full" id="download-btn">⬇️ Download</button>
+                        <button class="btn btn-primary btn-full" id="download-btn">
+                            <i class="fas fa-download"></i> Download
+                        </button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Preview</div>
+                            <div class="card-title">
+                                <i class="fas fa-eye"></i>
+                                Preview
+                            </div>
                         </div>
                         <div class="output" id="export-preview">
-                            <div class="output-empty">Select a format to preview...</div>
+                            <div class="output-empty">
+                                <i class="fas fa-file-code"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Select a format to preview...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Manual Test Recording Tab -->
+                <div class="tab-pane" id="manual-tests">
+                    <!-- Recording Controls -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-video"></i>
+                                Manual Test Recording
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Test Name</label>
+                            <input type="text" id="test-name" placeholder="e.g., Login Flow Test" value="Recorded Test">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Description (Optional)</label>
+                            <textarea id="test-description" placeholder="Describe what this test validates..."
+                                style="min-height: 80px;"></textarea>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                            <button id="start-recording" class="btn btn-primary" style="flex: 1;">
+                                <i class="fas fa-circle"></i> Start Recording
+                            </button>
+                            <button id="stop-recording" class="btn btn-danger" style="flex: 1;" disabled>
+                                <i class="fas fa-stop"></i> Stop Recording
+                            </button>
+                        </div>
+
+
+                        <div id="recording-status" style="
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-elevated);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        ">
+                            ⚪ Not recording
+                        </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="card" style="background: linear-gradient(135deg, #f8f9fe 0%, #faf5ff 100%);">
+                        <div class="card-title" style="margin-bottom: 16px;">
+                            <i class="fas fa-lightbulb" style="color: #f59e0b;"></i>
+                            How It Works
+                        </div>
+                        <ol style="
+            padding-left: 20px;
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        ">
+                            <li><strong>Click "Start Recording"</strong> - Extension begins tracking your actions</li>
+                            <li><strong>Perform your test manually</strong> - Click buttons, fill forms, navigate pages
+                            </li>
+                            <li><strong>Click "Stop Recording"</strong> - Extension captures all events</li>
+                            <li><strong>Select automation framework</strong> - Choose Cypress, Playwright, etc.</li>
+                            <li><strong>Generate automated test</strong> - Get ready-to-use test code!</li>
+                        </ol>
+                    </div>
+                    <!-- ===== TEST COLLECTIONS ===== -->
+                    <div class="card" id="collections-card" style="margin-top: 20px;">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-folder-tree"></i>
+                                Test Collections
+                            </div>
+                        </div>
+
+                        <!-- Existing Collections List -->
+                        <div id="collections-list" class="output" style="max-height: 200px; overflow-y: auto;">
+                            <div class="output-empty">
+                                <i class="fas fa-box-open"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                No collections yet.
+                            </div>
+                        </div>
+
+                        <!-- Add Collection -->
+                        <div style="margin-top: 10px; display: flex; gap: 8px;">
+                            <input id="new-collection-name" placeholder="New Collection Name" class="input-sm"
+                                style="flex: 1;">
+                            <button class="btn btn-primary btn-sm" id="add-collection-btn">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card" id="test-options-card"
+                        style="background: linear-gradient(135deg, #f8f9fe 0%, #faf5ff 100%);">
+                        <div class="card-title" style="margin-bottom: 16px;">
+                            <i class="fas fa-sliders"></i>
+                            Test Generation Options
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <!-- Keep All Attempts -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-repeat"></i> Keep All Attempts
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Include retry logic
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="keep-all-attempts-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Network Calls -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-network-wired"></i> API Calls
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Network assertions
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-network-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Assertions -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-check-circle"></i> Auto Assertions
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Verify steps
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-assertions-toggle" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Hovers -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-hand-pointer"></i> Hover Actions
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Mouseover events
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-hovers-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Scrolls -->
+                            <div
+                                style="padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <div
+                                            style="font-weight: 600; font-size: 12px; color: var(--text-primary); margin-bottom: 4px;">
+                                            <i class="fas fa-arrows-up-down"></i> Scroll Events
+                                        </div>
+                                        <div style="font-size: 11px; color: var(--text-muted);">
+                                            Page scrolling
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="include-scrolls-toggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div style="margin-top: 16px; display: flex; gap: 8px;">
+                            <button class="btn btn-ghost btn-sm" id="preset-basic" style="flex: 1;">
+                                <i class="fas fa-bolt"></i> Basic
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="preset-comprehensive" style="flex: 1;">
+                                <i class="fas fa-star"></i> Full
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="preset-minimal" style="flex: 1;">
+                                <i class="fas fa-minimize"></i> Minimal
+                            </button>
+                        </div>
+
+                        <!-- Examples -->
+                        <div
+                            style="margin-top: 12px; padding: 12px; background: rgba(124, 58, 237, 0.05); border-radius: 8px; border-left: 3px solid var(--primary);">
+                            <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 6px;">
+                                💡 Presets:
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+                                <strong>Basic:</strong> Clicks + Inputs<br>
+                                <strong>Full:</strong> Everything enabled<br>
+                                <strong>Minimal:</strong> Actions only, no assertions
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Framework Selection (hidden until recording stops) -->
+                    <div class="card hidden" id="framework-selection">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-code"></i>
+                                Generate Automated Test
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Select Framework</label>
+                            <select id="framework-select">
+                                <option value="cypress">Cypress (JavaScript)</option>
+                                <option value="playwright">Playwright (TypeScript)</option>
+                                <option value="selenium">Selenium (Java)</option>
+                                <option value="puppeteer">Puppeteer (JavaScript)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary btn-full" id="generate-code-btn">
+                            <i class="fas fa-wand-magic-sparkles"></i> Generate Test Code
+                        </button>
+                    </div>
+
+                    <!-- Generated Code Output -->
+                    <div class="card hidden" id="code-output-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-file-code"></i>
+                                Generated Test Code
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-ghost btn-sm" id="copy-code-btn">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <button class="btn btn-ghost btn-sm" id="download-code-btn">
+                                    <i class="fas fa-download"></i> Download
+                                </button>
+                            </div>
+                        </div>
+                        <div class="output" id="code-output">
+                            <div class="output-empty">
+                                <i class="fas fa-code"
+                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                Generated code will appear here...
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ===== Saved Tests Library ===== -->
+                    <div class="card" id="saved-tests-card" style="margin-top: 20px;">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-folder-open"></i>
+                                Saved Tests Library
+                            </div>
+                        </div>
+
+                        <div class="card-body" style="max-height: 260px; overflow-y: auto;">
+                            <div id="saved-tests-container" class="test-grid">
+                                <div class="output-empty" style="text-align:center;padding:20px;color:#9ca3af;">
+                                    <i class="fas fa-box-open"
+                                        style="font-size:22px;margin-bottom:6px;display:block;opacity:0.5;"></i>
+                                    No recorded tests yet.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- What Gets Captured -->
+                    <div class="card">
+                        <div class="card-title" style="margin-bottom: 12px;">
+                            <i class="fas fa-clipboard-list"></i>
+                            What We Capture
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <div style="
+                padding: 12px;
+                background: rgba(124, 58, 237, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid var(--primary);
+            ">
+                                <div style="font-weight: 600; color: var(--primary); margin-bottom: 4px;">
+                                    <i class="fas fa-mouse-pointer"></i> User Actions
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Clicks, inputs, form submissions
+                                </div>
+                            </div>
+                            <!-- Library of Saved Tests -->
+
+
+                            <div style="
+                padding: 12px;
+                background: rgba(16, 185, 129, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid var(--success);
+            ">
+                                <div style="font-weight: 600; color: var(--success); margin-bottom: 4px;">
+                                    <i class="fas fa-route"></i> Navigation
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Page changes, URL updates
+                                </div>
+                            </div>
+
+                            <div style="
+                padding: 12px;
+                background: rgba(236, 72, 153, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid var(--accent);
+            ">
+                                <div style="font-weight: 600; color: var(--accent); margin-bottom: 4px;">
+                                    <i class="fas fa-check-circle"></i> Assertions
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Success/error messages
+                                </div>
+                            </div>
+
+                            <div style="
+                padding: 12px;
+                background: rgba(6, 182, 212, 0.05);
+                border-radius: 8px;
+                border-left: 3px solid #06b6d4;
+            ">
+                                <div style="font-weight: 600; color: #06b6d4; margin-bottom: 4px;">
+                                    <i class="fas fa-network-wired"></i> API Calls
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted);">
+                                    Network requests & responses
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -769,8 +730,12 @@ Example: Login form with email/password validation"></textarea>
                 <div class="tab-pane" id="settings">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">AI Configuration</div>
+                            <div class="card-title">
+                                <i class="fas fa-brain"></i>
+                                AI Configuration
+                            </div>
                         </div>
+
                         <div class="form-group">
                             <label class="form-label">AI Provider</label>
                             <select id="ai-provider">
@@ -782,38 +747,125 @@ Example: Login form with email/password validation"></textarea>
                             <label class="form-label">API Key</label>
                             <input type="password" id="api-key" placeholder="sk-...">
                         </div>
-                        <button class="btn btn-primary btn-full" id="save-settings-btn">💾 Save</button>
+                        <button class="btn btn-primary btn-full" id="save-settings-btn">
+                            <i class="fas fa-floppy-disk"></i> Save Settings
+                        </button>
+                    </div>
+                    <div class="setting-item" style="margin-top: 16px;">
+                        <label class="form-label" for="mask-passwords-toggle">
+                            <i class="fas fa-lock"></i> Mask Passwords in Recordings
+                        </label>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="mask-passwords-toggle" />
+                            <span style="font-size: 12px; color: #64748b;">
+                                When enabled, recorded passwords will be replaced with "***"
+                            </span>
+                        </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">Integrations</div>
+                            <div class="card-title"><i class="fas fa-puzzle-piece"></i> Integrations</div>
+                        </div>
+
+                        <!-- GitHub Integration -->
+                        <div class="integration-block">
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-label"><i class="fab fa-github"></i> GitHub</div>
+                                    <div class="setting-desc">Push bugs to GitHub Issues</div>
+                                </div>
+                                <div class="toggle" id="toggle-github">
+                                    <div class="toggle-handle"></div>
+                                </div>
+                            </div>
+
+                            <div class="integration-fields" id="github-settings" style="display:none;margin-top:10px;">
+                                <input id="github-username" placeholder="GitHub Username" class="input-sm" />
+                                <input id="github-repo" placeholder="Repository Name" class="input-sm" />
+                                <input id="github-token" type="password" placeholder="Personal Access Token (ghp_...)"
+                                    class="input-sm" />
+                            </div>
+                        </div>
+
+                        <hr style="opacity:0.3;">
+
+                        <!-- Jira Integration -->
+                        <div class="integration-block">
+                            <div class="setting-row">
+                                <div class="setting-info">
+                                    <div class="setting-label"><i class="fab fa-jira"></i> Jira</div>
+                                    <div class="setting-desc">Create issues in Jira</div>
+                                </div>
+                                <div class="toggle" id="toggle-jira">
+                                    <div class="toggle-handle"></div>
+                                </div>
+                            </div>
+
+                            <div class="integration-fields" id="jira-settings" style="display:none;margin-top:10px;">
+                                <input id="jira-domain" placeholder="Domain (example.atlassian.net)" class="input-sm" />
+                                <input id="jira-email" placeholder="Your Jira Email" class="input-sm" />
+                                <input id="jira-token" type="password" placeholder="Jira API Token" class="input-sm" />
+                                <input id="jira-project" placeholder="Project Key (e.g. MAIN)" class="input-sm" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-palette"></i>
+                                Appearance
+                            </div>
                         </div>
                         <div class="setting-row">
                             <div class="setting-info">
-                                <div class="setting-label">Jira</div>
-                                <div class="setting-desc">Export to Jira Test Management</div>
+                                <div class="setting-label">Animations</div>
+                                <div class="setting-desc">Enable smooth transitions</div>
                             </div>
-                            <div class="toggle" id="toggle-jira">
+                            <div class="toggle active">
                                 <div class="toggle-handle"></div>
                             </div>
                         </div>
                         <div class="setting-row">
                             <div class="setting-info">
-                                <div class="setting-label">GitHub</div>
-                                <div class="setting-desc">Push tests to GitHub Issues</div>
+                                <div class="setting-label">Compact Mode</div>
+                                <div class="setting-desc">Reduce spacing for smaller screens</div>
                             </div>
-                            <div class="toggle" id="toggle-github">
+                            <div class="toggle">
                                 <div class="toggle-handle"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+
+            </div>
+            <!-- ===== COLLECTION VIEWER MODAL ===== -->
+            <div id="collection-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <span id="close-collection-modal" class="close">&times;</span>
+                        <h3 id="collection-modal-title" style="margin:0;">Collection</h3>
+                    </div>
+                    <div class="modal-body" id="collection-tests-list" style="max-height:300px;overflow-y:auto;">
+                    </div>
+                    <div class="modal-footer" style="margin-top:10px; display:flex; justify-content:space-between;">
+                        <button id="export-collection-btn" class="btn btn-primary btn-sm">
+                            <i class="fas fa-download"></i> Export as Suite
+                        </button>
+                        <button id="clear-collection-btn" class="btn btn-ghost btn-sm">
+                            <i class="fas fa-trash"></i> Clear Tests
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="sidebar.js"></script>
+    <script type="module" src="sidebar.js"></script>
+
+
 </body>
 
 </html>
