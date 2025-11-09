@@ -57,11 +57,11 @@
 - File bug reports with optional AI-generated summaries and screenshots.
 - Export test cases, bug reports, and session data to your preferred tools.
 
-<p align="center">
+<!-- <p align="center">
    <img src="https://raw.githubusercontent.com/Sahar-dev/QA-AI-Assistant/main/.github/usage.gif" alt="QA AI Assistant Usage Example" width="80%"/>
 </p>
 
-<sub><em>Above: Example of recording a session and generating tests in the sidebar (replace with your own GIF if available).</em></sub>
+<sub><em>Above: Example of recording a session and generating tests in the sidebar </em></sub> -->
 
 ## Built With
 
