@@ -1,112 +1,252 @@
-
 <div align="center">
-   <!-- <img src="https://raw.githubusercontent.com/Sahar-dev/QA-AI-Assistant/main/.github/banner.png" alt="QA AI Assistant Banner" width="100%"/> -->
-  
-   <h1>QA AI Assistant</h1>
+   <img src="https://raw.githubusercontent.com/Sahar-dev/QA-AI-Assistant/main/.github/banner.png" alt="QA AI Assistant Banner" width="100%"/>
+
+   <h1>🧠 QA AI Assistant</h1>
    <p><strong>From QA engineers, for QA engineers.</strong></p>
-   <p>AI-powered browser extension for smarter, faster, and more reliable quality assurance.</p>
-   <p><em>Supercharge your QA: from recording to test generation — all inside your browser.</em></p>
-  
+   <p>AI-powered Chrome extension that brings test generation, accessibility audits, and bug reporting right into your browser.</p>
+   <p><em>No context-switching, no tab-hopping — just quality, faster.</em></p>
 
-<p>
-    <img src="https://img.shields.io/badge/Manifest-V3-blue?style=flat-square"/>
-    <img src="https://img.shields.io/badge/OpenAI-GPT--4-orange?style=flat-square"/>
-    <img src="https://img.shields.io/badge/Google-Gemini-4285F4?style=flat-square"/>
-</p>
-
+   <p>
+      <img src="https://img.shields.io/badge/Manifest-V3-blue?style=flat-square"/>
+      <img src="https://img.shields.io/badge/OpenAI-GPT--4-orange?style=flat-square"/>
+      <img src="https://img.shields.io/badge/Google-Gemini-4285F4?style=flat-square"/>
+      <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square"/>
+   </p>
 </div>
 
 ---
 
-<p align="center"><em>Supercharge your QA workflow: record, generate, analyze, and report—all in one sidebar.</em></p>
+## 🧭 What is QA AI Assistant?
 
+Imagine if your Chrome DevTools sidebar grew a brain.
 
+QA AI Assistant is a **modular, AI-powered QA copilot** that lives in your browser and helps you:
 
-## Features
+- 🖱 **Record test sessions** with automated action capture
+- 🧪 **Generate Playwright, Cypress, or Postman tests** instantly from recordings or prompts
+- ♿ **Run WCAG accessibility audits** with AI-powered fix suggestions
+- 🐞 **File polished bug reports** with screenshots and AI summaries
+- ⚙️ **Export or sync** to GitHub, Jira, and TestRail with one click
 
-- <strong>AI Test Generation</strong>: Instantly create robust test cases for any feature using OpenAI GPT-4 or Google Gemini.
-- <strong>Session Recording</strong>: Capture every user action—clicks, inputs, navigation, network, errors, and more—for replay and automated test creation.
-- <strong>Bug Reporting</strong>: File, summarize, and export bug reports (with AI summaries and screenshots) directly from the sidebar.
-- <strong>Test Orchestration</strong>: Plan and prioritize unit, integration, e2e, performance, and security tests based on feature risk.
-- <strong>Visual Testing</strong>: Capture and compare UI screenshots to detect visual regressions.
-- <strong>Accessibility & Performance Analysis</strong>: Run accessibility and performance checks on any page.
-- <strong>Integrations</strong>: Connect with GitHub, Jira, TestRail, and export Playwright scripts.
-- <strong>Customizable</strong>: Choose your AI provider, configure test complexity, and manage integrations in settings.
+No more messy spreadsheets. No more copy-pasting stack traces into Jira at 3AM.
 
+---
 
-## Installation
+## 🚀 Why You'll Actually Use It
 
-1. **Clone or Download** this repository.
-2. **Load as Unpacked Extension**:
-   - Go to `chrome://extensions` in your Chromium-based browser.
-   - Enable "Developer mode" (top right).
-   - Click "Load unpacked" and select the project folder.
-3. The "QA AI Assistant" icon will appear in your browser toolbar.
+| Because you're tired of... | QA AI Assistant does this instead |
+|-----------------------------|----------------------------------|
+| Writing test scripts from scratch | 🧠 Generates tests from your actions or text prompts |
+| Checking accessibility manually | ♿ Runs full axe-core audits with AI fix hints |
+| Creating tickets by hand | 🐞 Auto-creates GitHub/Jira issues with screenshots & AI summaries |
+| Losing session data | 💾 Records everything locally — nothing leaves your machine |
+| Switching tabs 100 times | 🧩 Everything runs right inside your sidebar |
 
+---
 
-## Usage
+## ✨ Core Features
 
-- Click the extension icon to open the sidebar.
-- Use the tabs to record sessions, generate tests, analyze bugs, and more.
-- Configure your AI provider and API key in the Settings tab (OpenAI or Gemini supported).
-- Start a recording session to capture user flows and export them as automated tests.
-- File bug reports with optional AI-generated summaries and screenshots.
-- Export test cases, bug reports, and session data to your preferred tools.
+### 🎥 Session Recording
+Captures every user action—clicks, inputs, navigation, network requests, and errors—for replay and automated test creation.
 
-<p align="center">
-   <img src="https://raw.githubusercontent.com/Sahar-dev/QA-AI-Assistant/main/.github/usage.gif" alt="QA AI Assistant Usage Example" width="80%"/>
-</p>
+### 🧠 AI Test Generation
+Converts feature descriptions or recorded sessions into runnable Playwright, Cypress, or Postman test scripts using OpenAI GPT-4 or Google Gemini.
 
-<sub><em>Above: Example of recording a session and generating tests in the sidebar (replace with your own GIF if available).</em></sub>
+### ♿ Accessibility Audit
+Scans any page for WCAG 2.1 compliance issues using `axe-core`, provides severity scores, and offers AI-generated fix suggestions.
 
-## Built With
+### 🐞 Bug Reporting
+Auto-fills polished GitHub or Jira tickets with screenshots, stack traces, and AI-generated summaries—directly from the sidebar.
 
-- JavaScript (ES6+)
-- Chrome Extensions API (Manifest V3)
-- OpenAI GPT-4 & Google Gemini APIs
-- Playwright (for test export)
-- HTML5 & CSS3 (modular UI)
+### 📊 AI Audit Reports
+Combines all accessibility findings into comprehensive, AI-written reports that can be exported as GitHub/Jira issues.
 
+### 🔐 Offline-First & Secure
+Everything runs locally in your browser. Your API keys and test data never leave your machine.
 
-## Permissions & Security
+### 🧩 Integrations
+- **GitHub**: Create issues with labels and screenshots
+- **Jira**: File tickets with AI summaries
+- **TestRail**: Export test cases *(coming soon)*
 
-- The extension uses certain permissions (like `<all_urls>`) only to analyze pages during QA sessions.
-- All data and API keys stay on your device—never sent to external servers unless you explicitly export.
-- You can review or limit permissions anytime from Chrome’s extension settings.
+---
 
+## 💻 Quick Start
 
-## Contributing
+### Installation
 
-Contributions are welcome! To get started:
+```bash
+# Clone the repository
+git clone https://github.com/Sahar-dev/QA-AI-Assistant.git
+```
 
-1. Fork this repository and create a new branch.
-2. Make your changes (see `ui/`, `background/`, and `recording/` for main modules).
-3. Submit a pull request with a clear description.
+1. Open Chrome and navigate to `chrome://extensions`
+2. Toggle **Developer Mode** (top right)
+3. Click **Load unpacked** → select the cloned folder
+4. Click the 🧠 icon in your toolbar → Sidebar opens
+5. Add your OpenAI or Gemini API key under **Settings**
+6. Start recording, testing, and analyzing!
 
+---
 
-### Dev Setup
+## 🧩 Architecture Overview
 
-- No build step required—just load as unpacked extension.
-- For code style, use Prettier and ESLint (add a `package.json` if you want to enforce linting).
-- Add unit tests for new logic where possible.
+```
+QA-AI-Assistant/
+│
+├── background/      → Core extension services (recording, extraction, storage, axe injection)
+├── core/            → Shared logic (AI, GitHub/Jira APIs, utilities)
+├── recording/       → Session recorder & timeline viewer
+├── ui/              → Modular sidebar UI components (Bug Reports, Accessibility, etc.)
+│
+├── sidebar.html     → Sidebar layout
+├── sidebar.js       → Entry point / app orchestrator
+└── manifest.json    → Chrome Manifest V3 configuration
+```
 
+<div align="center">
+  <img src="./docs/qa-ai-architecture.svg" width="95%" alt="QA AI Assistant Architecture Diagram">
+</div>
 
-## License
+---
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+## 🧠 How It Works (in 5 steps)
 
-## Acknowledgments
+1. **Explore** a feature in your web app — the recorder quietly captures every action
+2. **Generate** — AI transforms recordings into runnable test scripts (Playwright, Cypress, or Postman)
+3. **Audit** — axe-core checks accessibility; AI explains each issue with fix suggestions
+4. **Report** — Click "Report" to file a perfect GitHub/Jira issue with screenshots
+5. **Relax** — Your PM thinks you're magic ✨
 
-- Powered by OpenAI and Google Gemini APIs.
-- Integrates with GitHub, Jira, and TestRail for seamless QA workflows.
+---
 
-## Maintainers / Contact
+## ⚙️ Developer Setup
 
-- **Lead Maintainer:** [Sahar-dev](https://github.com/Sahar-dev)
-- For questions, issues, or feature requests, please open an issue or discussion on GitHub.
+No build step, no bundler — pure ES modules.
+
+```bash
+# Clone the repository
+git clone https://github.com/Sahar-dev/QA-AI-Assistant.git
+cd QA-AI-Assistant
+
+# Optional: Install formatting tools
+npm install prettier eslint --save-dev
+npm run format
+```
+
+Reload the extension in Chrome (`chrome://extensions`) whenever you modify files.
+
+---
+
+## 📊 Feature Matrix
+
+| Capability | Description | Module(s) | AI Involved | Output |
+|-----------|-------------|-----------|-------------|--------|
+| 🎥 **Session Recording** | Captures DOM events, inputs, navigation | `recording/recorder.js` | ❌ | JSON Timeline |
+| 🧠 **AI Test Generation** | Converts recordings/prompts into test scripts | `core/ai.js`, `background/codegen.js` | ✅ | Playwright / Cypress / Postman |
+| ♿ **Accessibility Audit** | Runs axe-core, rates issues, gives fixes | `ui/accessibility.js`, `background/accessibility.js` | ✅ | WCAG Report |
+| 🐞 **Bug Reporting** | Submits AI-enhanced bug reports | `ui/bug-reports.js`, `core/github.js`, `core/jira.js` | ✅ | Markdown Issue |
+| 📊 **Audit Report Generator** | Groups violations with AI summary | `ui/accessibility.js` | ✅ | Audit Report Issue |
+| 🔐 **Storage / Settings** | Handles secure config and API keys | `ui/settings.js`, `core/storage.js` | ❌ | Chrome Sync |
+| 🧩 **Integrations** | Connects GitHub, Jira, TestRail | `core/github.js`, `core/jira.js` | ✅ | Synced Issues |
+| 🧠 **AI Dual Engine** | Switch between GPT-4 & Gemini | `core/ai.js` | ✅ | Adaptive Response |
+
+---
+
+## 🔒 Permissions & Security
+
+| Permission | Why We Need It |
+|-----------|---------------|
+| `activeTab`, `scripting` | Inject audits & extract DOM info |
+| `storage` | Save settings & test data locally |
+| `sidePanel` | Run inside Chrome sidebar |
+| `<all_urls>` | Enable cross-site audit testing |
+
+### 🔐 Privacy First
+- **Nothing leaves your machine** — all processing happens locally
+- **API keys** are stored in `chrome.storage.sync` (encrypted by Chrome)
+- **No telemetry** — we don't track your usage or collect data
+- **AI calls are client-side** — your workspace stays private
+
+---
+
+## 🧱 Tech Stack
+
+| Category | Tool / Library |
+|---------|---------------|
+| **Language** | JavaScript (ES Modules) |
+| **Extension API** | Chrome Manifest V3 |
+| **Accessibility Engine** | axe-core |
+| **AI Engines** | OpenAI GPT-4, Google Gemini |
+| **Integrations** | GitHub REST API, Jira Cloud API |
+| **Design** | Tailwind-inspired CSS + native HTML |
+| **Test Export** | Playwright, Cypress, Postman formats |
+| **Reporting** | Markdown-based summaries |
+
+---
+
+## 🧰 Pro QA Tips
+
+- **Shift + Click** the run button to include console logs in your test recording
+- **Alt + R** toggles recording — handy during exploratory sessions
+- **Audit early, not after UAT** — your developers will thank you
+- **Keep your AI key local** — don't commit `.env` or extension storage data
+- **Use GitHub labels** like "QA-Copilot" to filter AI-generated issues easily
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] TestRail & Xray export support
+- [ ] Performance audit integration (Lighthouse API)
+- [ ] Inline accessibility auto-fix suggestions
+- [ ] AI-based regression analysis
+- [ ] Multi-user cloud dashboard (team QA view)
+- [ ] Visual regression testing
+- [ ] Custom test template library
+
+---
+
+## 🤝 Contributing
+
+We're QA engineers — we like clean commits and honest pull requests.
+
+1. **Fork** this repository
+2. **Create** a feature branch: `feat/<your-feature>`
+3. **Keep it modular** — no spaghetti code allowed 🍝
+4. **Test your changes** inside Chrome's sidebar
+5. **Submit a PR** with screenshots or demo notes
+
+**Remember:** A good QA tool deserves good QA.
+
+### Development Guidelines
+- Use ESLint and Prettier for code formatting
+- Write clear commit messages
+- Add comments for complex logic
+- Test on multiple websites before submitting
+- Update documentation for new features
+
+---
+
+## 📝 License
+
+**MIT License** © 2025
+
+Built by QA engineers, for QA engineers — because we were tired of manually writing the same test 200 times.
+
+---
+
+## 🙏 Acknowledgments
+
+Thanks to the open-source community and the amazing tools that make this possible:
+- [axe-core](https://github.com/dequelabs/axe-core) for accessibility testing
+- [Playwright](https://playwright.dev/) for browser automation
+- [OpenAI](https://openai.com/) and [Google Gemini](https://deepmind.google/technologies/gemini/) for AI capabilities
 
 ---
 
 <div align="center">
-   <sub>QA AI Assistant &copy; 2025. Built by QA engineers, for QA engineers.</sub>
+   <sub>💜 QA AI Assistant — Where testing meets automation meets common sense.</sub>
+   <br>
+   <sub>Made with ❤️ by the QA community</sub>
 </div>
