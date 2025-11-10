@@ -104,9 +104,9 @@ QA-AI-Assistant/
 └── manifest.json    → Chrome Manifest V3 configuration
 ```
 
-<div align="center">
+<!-- <div align="center">
   <img src="./docs/qa-ai-architecture.svg" width="95%" alt="QA AI Assistant Architecture Diagram">
-</div>
+</div> -->
 
 ---
 
