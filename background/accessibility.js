@@ -1,41 +1,34 @@
-// background/accessibility.js
+// =============================
+// Accessibility Analyzer (MV3 Safe)
+// =============================
+
 export async function analyzeAccessibility(tabId) {
     if (!tabId) return { success: false, error: "No tab ID provided" };
 
-    const results = await chrome.scripting.executeScript({
-        target: { tabId },
-        func: runBasicA11yCheck,
-    });
-    return { success: true, results: results[0].result };
-}
-
-function runBasicA11yCheck() {
-    const issues = [];
-    const imgs = document.querySelectorAll("img:not([alt])");
-    if (imgs.length)
-        issues.push({
-            type: "Missing Alt Text",
-            count: imgs.length,
-            impact: "High",
+    try {
+        // Inject axe-core script directly into the tab DOM
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['background/axe.min.js']
         });
 
-    const inputs = Array.from(document.querySelectorAll("input")).filter((i) => {
-        const id = i.id;
-        return !id || !document.querySelector(`label[for='${id}']`);
-    });
-    if (inputs.length)
-        issues.push({
-            type: "Missing Labels",
-            count: inputs.length,
-            impact: "Medium",
+        // Run axe inside the page
+        const [result] = await chrome.scripting.executeScript({
+            target: { tabId },
+            func: () => {
+                return new Promise((resolve) => {
+                    // axe is now available on window
+                    window.axe.run(document, { resultTypes: ['violations'] }, (err, results) => {
+                        if (err) resolve({ error: err.message });
+                        else resolve(results);
+                    });
+                });
+            },
         });
 
-    return {
-        totalIssues: issues.length,
-        issues,
-        summary:
-            issues.length === 0
-                ? "No major accessibility issues found"
-                : `Found ${issues.length} issue(s)`,
-    };
+        return { success: true, results: result.result };
+    } catch (error) {
+        console.error('Accessibility scan failed:', error);
+        return { success: false, error: error.message };
+    }
 }

@@ -13,6 +13,18 @@ export function showToast(message, type = "success") {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+export async function captureScreenshot() {
+    return new Promise((resolve) => {
+        chrome.tabs.captureVisibleTab({ format: "png" }, (dataUrl) => {
+            if (chrome.runtime.lastError) {
+                console.warn("Screenshot failed:", chrome.runtime.lastError);
+                resolve(null);
+            } else resolve(dataUrl);
+        });
+    });
+}
+
+
 
 export function copyToClipboard(elementId) {
     const text = document.getElementById(elementId)?.textContent || "";

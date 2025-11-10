@@ -279,35 +279,26 @@
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title">
-                                <i class="fas fa-shield-halved"></i>
-                                Accessibility Audit
+                                <i class="fas fa-shield-halved"></i> Accessibility Audit
                             </div>
                         </div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
                             Scan the current page for WCAG compliance issues.
                         </p>
-                        <button class="btn btn-primary btn-full" id="run-a11y-btn">
-                            <i class="fas fa-play"></i> Run Audit
-                        </button>
+                        <button class="btn btn-ghost btn-sm" id="a11y-gen-tests">🧠 Generate Tests</button>
+                        <button class="btn btn-primary btn-full" id="run-a11y-btn"><i class="fas fa-play"></i> Run
+                            Audit</button>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">
-                                <i class="fas fa-clipboard-check"></i>
-                                Results
-                            </div>
-                            <button class="btn btn-ghost btn-sm" id="copy-a11y-btn">
-                                <i class="fas fa-copy"></i> Copy
-                            </button>
+                            <div class="card-title"><i class="fas fa-clipboard-check"></i> Accessibility Results</div>
                         </div>
-                        <div class="output" id="a11y-output">
-                            <div class="output-empty">
-                                <i class="fas fa-universal-access"
-                                    style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
-                                Results will appear here...
-                            </div>
-                        </div>
+                        <button class="btn btn-primary btn-sm" id="report-a11y-bugs">
+                            <i class="fas fa-bug"></i> Report Issues
+                        </button>
+                        <div class="summary" id="a11y-summary"></div>
+                        <div class="issue-list" id="a11y-list"></div>
                     </div>
                 </div>
 
