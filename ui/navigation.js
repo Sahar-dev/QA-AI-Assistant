@@ -20,7 +20,8 @@ export async function setupNavigation() {
             'accessibility': 'Accessibility Audit',
             'export': 'Export Tests',
             'timeline': 'Session Timeline',
-            'settings': 'Settings'
+            'settings': 'Settings',
+            'help': 'Help & Guidance'
         };
         document.getElementById('header-title').textContent = titles[tabId] || 'QA Copilot';
 
@@ -49,5 +50,10 @@ export async function setupNavigation() {
             switchTab(tabId);
             chrome.storage.local.set({ activeTab: tabId });
         });
+    });
+
+    document.getElementById("help-btn")?.addEventListener("click", () => {
+        switchTab("help");
+        chrome.storage.local.set({ activeTab: "help" });
     });
 }

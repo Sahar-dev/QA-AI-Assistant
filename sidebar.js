@@ -47,12 +47,6 @@ async function initApp() {
         console.error("Initialization failed:", error);
         showToast("UI initialization failed", "error");
     }
-}
-
-
-// =============================
-// ===== TEST GENERATION =====
-// =============================
 function setupTestGeneration() {
     document.getElementById("generate-btn")?.addEventListener("click", handleGenerateTestCases);
     document.getElementById("extract-btn")?.addEventListener("click", handleExtractPage);
@@ -193,7 +187,6 @@ ${(t.code || "").split("\n").map(l => "    " + l).join("\n")}
 // Attach both buttons
 document.getElementById("export-collection-btn")?.addEventListener("click", exportTestSuiteFromSidebar);
 document.getElementById("download-btn")?.addEventListener("click", exportTestSuiteFromSidebar);
-
 
 
 

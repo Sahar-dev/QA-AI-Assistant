@@ -47,6 +47,9 @@
             <button class="nav-btn" data-tab="settings" data-tooltip="Settings">
                 <i class="fas fa-gear"></i>
             </button>
+            <button class="nav-btn" data-tab="help" data-tooltip="Help">
+                <i class="fas fa-circle-question"></i>
+            </button>
         </div>
 
         <!-- Main Content -->
@@ -74,8 +77,8 @@
             <div class="content">
                 <!-- Test Cases Tab -->
                 <div class="tab-pane active" id="test-cases">
-                    <div class="card">
-                        <div class="card-header">
+                <div class="card">
+                    <div class="card-header">
                             <div class="card-title">
                                 <i class="fas fa-sparkles"></i>
                                 Feature Description
@@ -845,11 +848,10 @@
                                 </div>
                                 <div style="font-size: 12px; color: var(--text-muted);">
                                     Network requests & responses
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
                 <!-- Settings Tab -->
                 <div class="tab-pane" id="settings">
@@ -964,6 +966,75 @@
                     </div>
                 </div>
 
+
+                <div class="tab-pane" id="help">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-circle-question"></i>
+                                Help & Guide
+                            </div>
+                        </div>
+                        <div class="help-section">
+                            <p style="margin-bottom:12px;">
+                                QA Copilot stitches AI test generation, manual recording, bug hunting, accessibility auditing, and export workflows into one sidebar.
+                                Use the question-mark button anytime to jump back to this guide.
+                            </p>
+                            <ul>
+                                <li><strong>AI generation</strong> (see <code>background/index.js</code>) transforms your feature text into test code.</li>
+                                <li><strong>Recording modes</strong> (handled by <code>background/recording.js</code> + <code>recording/recorder-injected.js</code>) switch between deterministic, exploratory, and deep bug hunting.</li>
+                                <li><strong>Bug bundles</strong> compile steps, diagnostics, signals, and severity logic for developers.</li>
+                                <li><strong>Accessibility & regression</strong> capture snapshots, console history, and diff reports whenever you trigger them.</li>
+                                <li><strong>Collections & saved tests</strong> keep your generated suites ready for reuse.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-rocket"></i>
+                                Quick workflow
+                            </div>
+                        </div>
+                        <div class="help-section">
+                            <ol>
+                                <li>Describe the feature in the Test Case Generator, select the desired risk level, and hit <strong>Generate</strong>.</li>
+                                <li>Use Manual Recording to capture UI interactions. Pick <strong>Test</strong> for deterministic playback, <strong>Exploratory</strong> for insights, or <strong>Bug Hunt</strong> for diagnostics.</li>
+                                <li>Stop recording, inspect the session timeline, and leverage assertions or API data before saving.</li>
+                                <li>Export bug bundles or generated code from their dedicated cards; the bug bundle card now surfaces stability score, risks, reproductions, and fixes.</li>
+                                <li>Store favorite suites via Collections or export them straight from the Export tab.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-lightbulb"></i>
+                                Tips for reliability
+                            </div>
+                        </div>
+                        <div class="help-section">
+                            <div class="help-grid">
+                                <div>
+                                    <strong>Recording modes</strong>
+                                    <p>Test mode captures all interactions, Exploratory throttles noise and clusters flows, Bug Hunt logs console errors, network failures, and performance anomalies.</p>
+                                </div>
+                                <div>
+                                    <strong>Bundle hygiene</strong>
+                                    <p>Stop immediately after reproducing the issue so the bundle is focused and lightweight.</p>
+                                </div>
+                                <div>
+                                    <strong>Diagnostics</strong>
+                                    <p>Use the card output to see hot signals, risk areas, and suggested fixes before filing a bug.</p>
+                                </div>
+                                <div>
+                                    <strong>AI code</strong>
+                                    <p>Regenerate if your feature text changes, and copy/export from the Generated Code card.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
             </div>
             <!-- ===== COLLECTION VIEWER MODAL ===== -->
