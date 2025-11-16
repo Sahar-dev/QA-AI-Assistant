@@ -1,0 +1,45 @@
+name: QA Extension CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Lint
+        run: npm run lint --if-present
+
+      - name: Build extension
+        run: npm run build --if-present
+
+      - name: Create ZIP package
+        run: |
+          mkdir -p dist
+          zip -r qa-extension.zip . \
+            -x "node_modules/*" \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "*.md" \
+            -x "*.log"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-extension-package
+          path: qa-extension.zip
