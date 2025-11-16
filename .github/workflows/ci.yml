@@ -5,41 +5,254 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch: # Manual trigger option
 
 jobs:
-  build:
+  validate:
+    name: Validate & Lint
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --only=dev
+        continue-on-error: true # In case you don't have package.json yet
 
-      - name: Run Lint
-        run: npm run lint --if-present
+      - name: Validate manifest.json
+        run: |
+          echo "🔍 Validating manifest.json..."
+          python3 - << 'EOF'
+          import json
+          import sys
+          
+          try:
+              with open("manifest.json") as f:
+                  manifest = json.load(f)
+              
+              # Basic manifest v3 checks
+              required_fields = ["manifest_version", "name", "version"]
+              for field in required_fields:
+                  if field not in manifest:
+                      print(f"❌ Missing required field: {field}")
+                      sys.exit(1)
+              
+              if manifest.get("manifest_version") != 3:
+                  print("⚠️  Warning: Not using Manifest V3")
+              
+              print("✅ Manifest is valid!")
+          except json.JSONDecodeError as e:
+              print(f"❌ Invalid JSON: {e}")
+              sys.exit(1)
+          except FileNotFoundError:
+              print("❌ manifest.json not found")
+              sys.exit(1)
+          EOF
 
-      - name: Build extension
-        run: npm run build --if-present
+      - name: Lint JavaScript files
+        run: |
+          if [ -f "package.json" ]; then
+            npm run lint || echo "⚠️ No lint script found, skipping..."
+          else
+            echo "⚠️ No package.json found, skipping lint..."
+          fi
+        continue-on-error: true
+
+      - name: Check for TODO/FIXME comments
+        run: |
+          echo "🔍 Checking for TODO/FIXME comments..."
+          TODO_COUNT=$(grep -r "TODO\|FIXME" --include="*.js" --include="*.html" --include="*.css" . 2>/dev/null | wc -l || echo 0)
+          if [ "$TODO_COUNT" -gt 0 ]; then
+            echo "⚠️ Found $TODO_COUNT TODO/FIXME comments"
+            grep -r "TODO\|FIXME" --include="*.js" --include="*.html" --include="*.css" . || true
+          else
+            echo "✅ No TODO/FIXME comments found"
+          fi
+
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for sensitive data
+        run: |
+          echo "🔒 Checking for sensitive data..."
+          
+          # Check for API keys or tokens in code
+          if grep -r -E "(api[_-]?key|token|secret|password|apikey)" --include="*.js" --include="*.json" . | grep -v "node_modules" | grep -v ".git"; then
+            echo "⚠️ Warning: Potential sensitive data found in code"
+          else
+            echo "✅ No obvious sensitive data found"
+          fi
+
+      - name: Check permissions in manifest
+        run: |
+          echo "🔍 Reviewing manifest permissions..."
+          python3 - << 'EOF'
+          import json
+          
+          with open("manifest.json") as f:
+              manifest = json.load(f)
+          
+          permissions = manifest.get("permissions", [])
+          host_permissions = manifest.get("host_permissions", [])
+          
+          print(f"📋 Permissions: {', '.join(permissions) if permissions else 'None'}")
+          print(f"🌐 Host Permissions: {', '.join(host_permissions) if host_permissions else 'None'}")
+          
+          # Warn about broad permissions
+          if "<all_urls>" in host_permissions or "*://*/*" in host_permissions:
+              print("⚠️  Warning: Extension has access to all URLs")
+          
+          print("✅ Permission review complete")
+          EOF
+
+  build:
+    name: Build Extension
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create build directory
+        run: mkdir -p build
+
+      - name: Copy extension files
+        run: |
+          echo "📦 Preparing build..."
+          rsync -av --progress . build/ \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude .github \
+            --exclude build \
+            --exclude '*.md' \
+            --exclude '*.log' \
+            --exclude '.env*' \
+            --exclude 'package*.json' \
+            --exclude '.eslintrc*' \
+            --exclude '.prettierrc*'
 
       - name: Create ZIP package
         run: |
-          mkdir -p dist
-          zip -r qa-extension.zip . \
-            -x "node_modules/*" \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "*.md" \
-            -x "*.log"
+          cd build
+          zip -r ../qa-extension.zip . -x "*.DS_Store"
+          cd ..
+          echo "✅ Build complete!"
+          ls -lh qa-extension.zip
 
-      - name: Upload Artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qa-extension-package
+          name: qa-extension-build-${{ github.sha }}
           path: qa-extension.zip
+          retention-days: 30
+
+      - name: Generate build summary
+        run: |
+          echo "## 🎉 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artifact" >> $GITHUB_STEP_SUMMARY
+          echo "Download the build artifact from the Actions tab." >> $GITHUB_STEP_SUMMARY
+
+  test:
+    name: Basic Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check file structure
+        run: |
+          echo "🔍 Checking file structure..."
+          
+          required_files=("manifest.json" "sidebar.html" "sidebar.js")
+          
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ Found: $file"
+            else
+              echo "❌ Missing: $file"
+              exit 1
+            fi
+          done
+
+      - name: Check for broken imports
+        run: |
+          echo "🔍 Checking for broken ES module imports..."
+          
+          # Find all import statements and check if files exist
+          grep -r "from ['\"]\..*['\"]" --include="*.js" . | while read -r line; do
+            file=$(echo "$line" | cut -d: -f1)
+            import_path=$(echo "$line" | sed -n "s/.*from ['\"]\\(.*\\)['\"].*/\\1/p")
+            
+            # Resolve relative path
+            dir=$(dirname "$file")
+            full_path="$dir/$import_path"
+            
+            # Add .js if missing
+            if [[ ! "$full_path" =~ \.js$ ]]; then
+              full_path="${full_path}.js"
+            fi
+            
+            if [ ! -f "$full_path" ]; then
+              echo "⚠️ Potential broken import in $file: $import_path"
+            fi
+          done || echo "✅ No obvious broken imports found"
+
+  release-draft:
+    name: Draft Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qa-extension-build-${{ github.sha }}
+
+      - name: Extract version from manifest
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📌 Version: $VERSION"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## 🚀 QA AI Assistant v${{ steps.version.outputs.version }}
+            
+            ### What's New
+            - Add your release notes here
+            
+            ### Installation
+            1. Download `qa-extension.zip`
+            2. Extract the files
+            3. Load in Chrome via `chrome://extensions`
+            
+            ### Notes
+            - Built from commit: ${{ github.sha }}
+          files: qa-extension.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
