@@ -1,5 +1,9 @@
 // recording/recorder-injected.js
 // This runs in the page's MAIN world and can intercept fetch
+if (window.__qaRecorderMainLoaded) {
+    console.log("🎬 Recorder script already active - skipping reinject");
+} else {
+window.__qaRecorderMainLoaded = true;
 (function () {
     console.log("🎬 Recorder injected script starting (MAIN world)...");
 
@@ -101,8 +105,8 @@
         });
     }
 
-    function recordConsoleEntry(level, args = []) {
-        const message = args
+    function normalizeConsoleArgs(args = []) {
+        return args
             .map((arg) => {
                 if (typeof arg === 'object') {
                     try {
@@ -115,13 +119,17 @@
             })
             .join(' ')
             .slice(0, 500);
+    }
 
+    function recordConsoleEntry(level, args = []) {
+        const message = normalizeConsoleArgs(args);
         pushBounded(window.__qaConsoleHistory, {
             level,
             message,
             timestamp: Date.now(),
             digest: digestString(level + ":" + message),
         });
+        return message;
     }
 
     function recordNetworkEntry(entry = {}) {
@@ -173,12 +181,60 @@
         ["log", "info", "warn", "error"].forEach((level) => {
             const original = console[level];
             console[level] = function (...args) {
+                let normalized = null;
                 try {
-                    recordConsoleEntry(level, args);
+                    normalized = recordConsoleEntry(level, args);
                 } catch { /* noop */ }
+                if (window.__qaRecordingActive) {
+                    const shouldEmit =
+                        level === 'error' ||
+                        (level === 'warn' && isBugMode());
+                    if (shouldEmit) {
+                        try {
+                            sendEvent(
+                                level === 'error' ? 'console_error' : 'console_warn',
+                                {
+                                    level,
+                                    message: normalized || normalizeConsoleArgs(args),
+                                    url: location.href,
+                                }
+                            );
+                        } catch { /* noop */ }
+                    }
+                }
                 return original.apply(this, args);
             };
         });
+    }
+
+    function captureBugArtifacts() {
+        const perfStats = window.__qaPerfStats || {};
+        return {
+            consoleHistory: (window.__qaConsoleHistory || []).slice(-MAX_HISTORY),
+            networkLog: (window.__qaNetworkLog || []).slice(-MAX_HISTORY),
+            runtimeErrors: (window.__qaRuntimeErrors || []).slice(-MAX_HISTORY),
+            perfStats: {
+                memory: Array.isArray(perfStats.memory)
+                    ? perfStats.memory.slice(-MAX_PERF_SAMPLES)
+                    : [],
+                longTasks: Array.isArray(perfStats.longTasks)
+                    ? perfStats.longTasks.slice(-MAX_PERF_SAMPLES)
+                    : [],
+            },
+            clickIssues: (window.__qaClickIssues || []).slice(-MAX_HISTORY),
+            lastUrl: location.href,
+            userAgent: navigator.userAgent,
+        };
+    }
+
+    function dispatchBugSnapshot(reason = "stop") {
+        if (!window.__qaRecordingActive || !isBugMode()) return;
+        const payload = {
+            ...captureBugArtifacts(),
+            reason,
+            timestamp: Date.now(),
+        };
+        sendEvent('bug_snapshot', payload);
     }
 
     // Send events to content script via window.postMessage
@@ -1198,11 +1254,17 @@
                 flowCounts.clear();
             } else if (event.data.action === 'stopRecording') {
                 console.log("🛑 Recording stopped");
+                dispatchBugSnapshot("stop");
                 window.__qaRecordingActive = false;
             }
         }
     });
 
+    window.addEventListener('beforeunload', () => {
+        dispatchBugSnapshot("unload");
+    });
+
     console.log('✅ QA Copilot Injected Script Active (MAIN world)');
     console.log('📹 Fetch interception:', window.fetch !== originalFetch ? '✅ ACTIVE' : '❌ FAILED');
 })();
+}

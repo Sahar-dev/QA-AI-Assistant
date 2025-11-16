@@ -7,6 +7,9 @@ export const sessionBuffers = new Map();
 export const recordedEvents = [];
 recordedEvents.metadata = recordedEvents.metadata || {};
 
+const EVENT_DEDUP_CACHE = new Map();
+const EVENT_DEDUP_LIMIT = 200;
+
 const ACTIVE_SESSION_KEY = "qa_active_session";
 const SESSION_HISTORY_KEY = "qa_session_history";
 const SESSION_HISTORY_LIMIT = 10;
@@ -36,6 +39,44 @@ function normalizeMetadata(metadata = {}) {
     if (metadata.tags) normalized.tags = metadata.tags;
     if (metadata.lastResumedAt) normalized.lastResumedAt = metadata.lastResumedAt;
     return normalized;
+}
+
+function getEventSignature(evt = {}) {
+    const ts = evt.timestamp || evt.t || 0;
+    let dataSig = "";
+    if (evt.data) {
+        try {
+            dataSig = JSON.stringify(evt.data);
+        } catch {
+            dataSig = String(evt.data);
+        }
+    }
+    return `${evt.type || "unknown"}|${ts}|${evt.url || ""}|${dataSig}`.slice(0, 500);
+}
+
+function shouldSkipDuplicateEvent(sessionId, signature) {
+    if (!sessionId || !signature) return false;
+    let bucket = EVENT_DEDUP_CACHE.get(sessionId);
+    if (!bucket) {
+        bucket = { order: [], set: new Set() };
+        EVENT_DEDUP_CACHE.set(sessionId, bucket);
+    }
+    if (bucket.set.has(signature)) {
+        return true;
+    }
+    bucket.set.add(signature);
+    bucket.order.push(signature);
+    if (bucket.order.length > EVENT_DEDUP_LIMIT) {
+        const expired = bucket.order.shift();
+        if (expired) bucket.set.delete(expired);
+    }
+    return false;
+}
+
+function clearDedupCache(sessionId) {
+    if (sessionId) {
+        EVENT_DEDUP_CACHE.delete(sessionId);
+    }
 }
 
 async function restoreActiveSession() {
@@ -115,6 +156,7 @@ export async function createActiveSession(metadata = {}) {
     const normalized = normalizeMetadata(metadata);
     recordedEvents.length = 0;
     recordedEvents.metadata = normalized;
+    clearDedupCache(normalized.sessionId);
 
     activeSessionCache = {
         id: normalized.sessionId,
@@ -166,6 +208,7 @@ export async function archiveActiveSession(status = "completed", options = {}) {
         return null;
     }
 
+    clearDedupCache(snapshot.id);
     sessionHistoryCache = [
         snapshot,
         ...sessionHistoryCache.filter((s) => s.id !== snapshot.id),
@@ -194,6 +237,11 @@ export async function pushSessionEvent(tabId, evt) {
     if (!tabId) return;
     const now = Date.now();
     const sessionEvent = { ...evt, t: now };
+    const sessionKey = sessionEvent.sessionId || recordedEvents.metadata?.sessionId;
+    const signature = getEventSignature(sessionEvent);
+    if (shouldSkipDuplicateEvent(sessionKey, signature)) {
+        return;
+    }
     const buffer = sessionBuffers.get(tabId) || [];
     buffer.push(sessionEvent);
     sessionBuffers.set(tabId, buffer);

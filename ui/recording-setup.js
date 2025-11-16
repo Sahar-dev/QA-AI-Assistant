@@ -720,11 +720,7 @@ async function exportBugBundle() {
             showToast("Bug bundle exported", "success");
             const bundleOutput = document.getElementById("bug-bundle-output");
             if (bundleOutput) {
-                bundleOutput.innerHTML = `
-                    <div class="summary-section"><strong>Severity:</strong> ${response.bundle.severity}</div>
-                    <div class="summary-section"><strong>Root cause:</strong> ${response.bundle.rootCause}</div>
-                    <div class="summary-section"><strong>Suggestions:</strong><br>${(response.bundle.suggestions || []).join("<br>")}</div>
-                `;
+                bundleOutput.innerHTML = renderBugBundleInsights(response.bundle);
             }
         } else {
             throw new Error(response?.error || "Failed to export bundle");
@@ -732,4 +728,108 @@ async function exportBugBundle() {
     } catch (error) {
         showToast(error.message, "error");
     }
+}
+
+function renderBugBundleInsights(bundle = {}) {
+    if (!bundle || typeof bundle !== "object") {
+        return `<div class="output-empty">No bundle data available.</div>`;
+    }
+
+    const severityLabel = bundle.severity || "Unknown";
+    const severitySlug = severityLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const decision = sanitizeText(bundle.shipDecision || "Review required");
+    const summary = sanitizeText(bundle.summary || "No diagnostic summary available.").replace(/\n/g, "<br>");
+    const rootCause = sanitizeText(bundle.rootCause || "No dominant root cause detected");
+    const overview = bundle.overview || {};
+
+    const stabilityValue =
+        typeof bundle.stabilityScore === "number"
+            ? `${Math.max(0, Math.round(bundle.stabilityScore))}%`
+            : "--";
+
+    const metrics = [
+        { label: "Steps", value: overview.totalSteps ?? bundle.steps?.length ?? 0 },
+        { label: "Pages", value: overview.pagesTouched ?? "--" },
+        { label: "Console Errors", value: overview.consoleErrorCount ?? (bundle.consoleErrors?.length ?? 0) },
+        { label: "Failed APIs", value: overview.networkFailureCount ?? (bundle.networkFailures?.length ?? 0) },
+        { label: "Slow APIs", value: overview.slowApiCount ?? (bundle.slowApis?.length ?? 0) },
+        { label: "Perf Alerts", value: overview.perfAlertCount ?? (bundle.performance?.length ?? 0) },
+        { label: "Stability", value: stabilityValue },
+    ];
+
+    const metricsHtml = metrics
+        .map(
+            (metric) => `
+            <div class="bug-diagnostic-card">
+                <div class="value">${sanitizeText(String(metric.value))}</div>
+                <div class="label">${sanitizeText(metric.label)}</div>
+            </div>`
+        )
+        .join("");
+
+    const hotSignals = bundle.hotSignals || [];
+    const hotSignalsHtml = hotSignals.length
+        ? hotSignals
+              .slice(0, 4)
+              .map((signal) => {
+                  const title = sanitizeText(signal.title || "Signal");
+                  const detail = sanitizeText(signal.detail || "");
+                  const highlight = signal.highlight ? ` <span class="hot-highlight">${sanitizeText(signal.highlight)}</span>` : "";
+                  return `<li><strong>${title}:</strong> ${detail}${highlight}</li>`;
+              })
+              .join("")
+        : "<li>No critical signals captured.</li>";
+
+    const riskAreas = bundle.riskAreas || [];
+    const riskHtml = riskAreas.length
+        ? riskAreas.map((risk) => `<span class="risk-chip">${sanitizeText(risk)}</span>`).join("")
+        : '<span class="risk-chip">No dominant risks</span>';
+
+    const reproduction = bundle.reproduction || [];
+    const reproductionHtml = reproduction.length
+        ? reproduction.map((step) => `<li>${sanitizeText(step)}</li>`).join("")
+        : "<li>No steps recorded.</li>";
+
+    const suggestions = bundle.suggestions || [];
+    const suggestionsHtml = suggestions.length
+        ? suggestions.map((tip) => `<li>${sanitizeText(tip)}</li>`).join("")
+        : "<li>No automated recommendations.</li>";
+
+    return `
+        <div class="bug-summary">
+            <div class="bug-summary-header">
+                <span class="bug-severity-chip severity-${sanitizeText(severitySlug)}">${sanitizeText(severityLabel)}</span>
+                <span class="bug-decision">${decision}</span>
+            </div>
+            <p>${summary}</p>
+            <div class="bug-summary-meta"><strong>Root cause:</strong> ${rootCause}</div>
+        </div>
+        <div class="bug-diagnostic-grid">
+            ${metricsHtml}
+        </div>
+        <div class="bug-section">
+            <div class="bug-section-title">Hot Signals</div>
+            <ul class="bug-list">
+                ${hotSignalsHtml}
+            </ul>
+        </div>
+        <div class="bug-section">
+            <div class="bug-section-title">Risk Areas</div>
+            <div class="risk-chip-row">
+                ${riskHtml}
+            </div>
+        </div>
+        <div class="bug-section">
+            <div class="bug-section-title">Reproduction Steps</div>
+            <ol class="bug-steps">
+                ${reproductionHtml}
+            </ol>
+        </div>
+        <div class="bug-section">
+            <div class="bug-section-title">Recommended Fixes</div>
+            <ul class="bug-list">
+                ${suggestionsHtml}
+            </ul>
+        </div>
+    `;
 }
