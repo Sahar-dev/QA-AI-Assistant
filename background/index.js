@@ -7,9 +7,14 @@ import { log } from "./logger.js";
 import { handleExtraction } from "./extraction.js";
 import { generateTestCasesWithAI } from "./ai-generation.js";
 import { analyzeAccessibility } from "./accessibility.js";
-import { initRecordingHandlers } from "./recording.js";
+import {
+    initRecordingHandlers,
+    generateExploratorySummaryReport,
+    exportBugBundleReport,
+} from "./recording.js";
 import { saveTestToStorage, exportSessionData } from "./storage.js";
 import { exportBugReport, exportTestSuite } from "./export.js";
+import { captureRegressionSnapshot, compareRegressionSnapshots } from "./regression.js";
 
 
 // =============================
@@ -96,11 +101,37 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
                     .then(sendResponse)
                     .catch((err) => sendResponse({ success: false, error: err.message }));
                 return true;
+            // ---- Regression Analyzer ----
+            case "captureRegressionSnapshot":
+                captureRegressionSnapshot(req.tabId || sender.tab?.id)
+                    .then(sendResponse)
+                    .catch((err) => sendResponse({ success: false, error: err.message }));
+                return true;
+            case "compareRegressionSnapshots":
+                compareRegressionSnapshots()
+                    .then(sendResponse)
+                    .catch((err) => sendResponse({ success: false, error: err.message }));
+                return true;
+            case "generateExploratorySummary":
+                generateExploratorySummaryReport()
+                    .then(sendResponse)
+                    .catch((err) => sendResponse({ success: false, error: err.message }));
+                return true;
+            case "exportBugBundle":
+                exportBugBundleReport()
+                    .then(sendResponse)
+                    .catch((err) => sendResponse({ success: false, error: err.message }));
+                return true;
             // ---- Recording related (handled in recording.js) ----
             case "startRecordingSession":
             case "stopRecordingSession":
             case "recordEvent":
             case "getRecordingState":
+            case "getSessionHistory":
+            case "getActiveSession":
+            case "getSessionById":
+            case "resumeRecordingSession":
+            case "deleteSession":
                 return true;
 
             default:

@@ -1491,3 +1491,360 @@ button:disabled {
     border-radius: 6px;
     font-size: 11px;
 }
+
+/* Session timeline */
+.card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.active-session-banner {
+    background: rgba(124, 58, 237, 0.05);
+    border: 1px dashed rgba(124, 58, 237, 0.4);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.active-session-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.active-session-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.active-session-description {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+.badge-live {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #ffffff;
+    background: #ef4444;
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+
+.session-timeline-grid {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.session-history-column,
+.session-events-column {
+    flex: 1;
+    min-width: 220px;
+}
+
+.section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.session-history-list {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.session-history-item {
+    width: 100%;
+    text-align: left;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.session-history-item.active {
+    border-color: var(--primary);
+    background: rgba(124, 58, 237, 0.08);
+}
+
+.session-history-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.session-history-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.session-timeline-events {
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.timeline-event {
+    border-left: 3px solid var(--border-color);
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border-radius: 6px;
+    display: flex;
+    gap: 10px;
+}
+
+.timeline-event-index {
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.timeline-event-body {
+    flex: 1;
+}
+
+.timeline-event-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.timeline-event-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.timeline-event-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.timeline-footer {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.session-history-info {
+    flex: 1;
+    cursor: pointer;
+}
+
+.session-history-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding-right: 44px;
+    position: relative;
+}
+
+.session-delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.session-delete-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.timeline-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Regression analyzer */
+.regression-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.regression-status {
+    margin: 12px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.text-error {
+    color: #dc2626 !important;
+}
+
+.mode-toggle {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.mode-btn {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    padding: 10px;
+    text-align: left;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: var(--text-primary);
+    transition: border 0.2s, transform 0.2s;
+}
+
+.mode-btn span {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.mode-btn.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+}
+
+.snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.snapshot-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    min-height: 180px;
+}
+
+.snapshot-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.snapshot-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.snapshot-metrics {
+    font-size: 12px;
+    margin-top: 6px;
+    color: var(--text-secondary);
+}
+
+.snapshot-image {
+    margin-top: 10px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #0f172a;
+}
+
+.snapshot-image img {
+    width: 100%;
+    display: block;
+}
+
+.snapshot-foot {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 8px;
+}
+
+.regression-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.regression-metric {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    flex: 1;
+    min-width: 120px;
+}
+
+.metric-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+}
+
+.regression-diff-chips {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.chip {
+    font-size: 12px;
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 6px;
+    padding: 6px 10px;
+    border-left: 3px solid var(--primary);
+}
+
+.regression-report-text {
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+.regression-report-text h2,
+.regression-report-text h3,
+.regression-report-text h4 {
+    margin: 12px 0 4px;
+    font-weight: 600;
+}
+
+.regression-report-text ul {
+    margin: 6px 0 6px 18px;
+}
+
+.regression-report-text p {
+    margin: 8px 0;
+}
+
+.summary-section {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}

@@ -17,6 +17,7 @@
 
     // Store session ID
     let currentSessionId = null;
+    let currentMode = "test";
 
     // Listen for events from the injected script (via window.postMessage)
     window.addEventListener('message', (event) => {
@@ -25,7 +26,7 @@
 
         // Check if it's a recorder event
         if (event.data.__qaRecorderEvent) {
-            const { type, data, url, timestamp, sessionId } = event.data;
+            const { type, data, url, timestamp, sessionId, mode } = event.data;
 
             // Log ALL events for debugging
             console.log("🌉 Bridge received event:", type, data);
@@ -38,7 +39,8 @@
                     type,
                     data,
                     url,
-                    timestamp
+                    timestamp,
+                    mode: mode || currentMode,
                 }
             }, (response) => {
                 if (chrome.runtime.lastError) {
@@ -52,7 +54,7 @@
 
     // ALSO listen for custom events (backup method)
     window.addEventListener('__qaRecorderEvent', (event) => {
-        const { type, data, url, timestamp, sessionId } = event.detail;
+        const { type, data, url, timestamp, sessionId, mode } = event.detail;
 
         console.log("🌉 Bridge received event (custom):", type, data);
 
@@ -63,7 +65,8 @@
                 type,
                 data,
                 url,
-                timestamp
+                timestamp,
+                mode: mode || currentMode,
             }
         }, (response) => {
             if (chrome.runtime.lastError) {
@@ -77,14 +80,17 @@
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
         if (req.action === "startRecording") {
-            console.log("🎥 Bridge: Starting recording, session:", req.sessionId);
+            console.log("🎥 Bridge: Starting recording, session:", req.sessionId, "mode:", req.mode);
             currentSessionId = req.sessionId; // Store it
+            currentMode = req.mode || "test";
 
             // Forward to injected script via postMessage
             window.postMessage({
                 __qaRecorderControl: true,
                 action: 'startRecording',
-                sessionId: req.sessionId
+                sessionId: req.sessionId,
+                mode: currentMode,
+                modeSettings: req.modeSettings || {},
             }, '*');
 
             sendResponse({ success: true });

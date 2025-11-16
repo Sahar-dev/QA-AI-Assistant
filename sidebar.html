@@ -223,6 +223,47 @@
 
                 </div>
 
+                <!-- AI Regression Analyzer Tab -->
+                <div class="tab-pane" id="analyze">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-wave-square"></i>
+                                AI Regression Analyzer
+                            </div>
+                            <div class="regression-actions">
+                                <button class="btn btn-ghost btn-sm" id="capture-regression-btn">
+                                    <i class="fas fa-camera"></i> Capture Snapshot
+                                </button>
+                                <button class="btn btn-primary btn-sm" id="compare-regression-btn">
+                                    <i class="fas fa-brain"></i> Compare to Previous Run
+                                </button>
+                            </div>
+                        </div>
+                        <div id="regression-status" class="regression-status">
+                            No snapshots captured yet.
+                        </div>
+                        <div class="snapshot-grid">
+                            <div class="snapshot-card" id="regression-snapshot-previous"></div>
+                            <div class="snapshot-card" id="regression-snapshot-latest"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-fire-flame-curved"></i>
+                                Regression Risk Report
+                            </div>
+                        </div>
+                        <div class="output" id="regression-report-output">
+                            <div class="output-empty">
+                                Capture two snapshots and run a comparison to see AI-powered regression insights.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Test Data Tab -->
                 <div class="tab-pane" id="test-data">
                     <div class="card">
@@ -383,6 +424,21 @@
                             </button>
                         </div>
 
+                        <div class="mode-toggle">
+                            <button class="mode-btn active" data-mode="test" id="mode-test">
+                                🧪 Test Recording
+                                <span>Deterministic test scripts</span>
+                            </button>
+                            <button class="mode-btn" data-mode="explore" id="mode-explore">
+                                🎮 Exploratory
+                                <span>Flow insights & summaries</span>
+                            </button>
+                            <button class="mode-btn" data-mode="bug" id="mode-bug">
+                                🔍 Bug Hunt
+                                <span>Deep diagnostics</span>
+                            </button>
+                        </div>
+
 
                         <div id="recording-status" style="
             text-align: center;
@@ -416,6 +472,45 @@
                             <li><strong>Select automation framework</strong> - Choose Cypress, Playwright, etc.</li>
                             <li><strong>Generate automated test</strong> - Get ready-to-use test code!</li>
                         </ol>
+                    </div>
+                    <!-- Session Timeline -->
+                    <div class="card" id="session-timeline-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-route"></i>
+                                Session Timeline
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-ghost btn-sm" id="resume-session-btn">
+                                    <i class="fas fa-play"></i> Resume Session
+                                </button>
+                                <button class="btn btn-ghost btn-sm" id="refresh-timeline-btn">
+                                    <i class="fas fa-rotate-right"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div id="active-session-banner" class="active-session-banner">
+                            <div class="output-empty">No active session yet.</div>
+                        </div>
+                        <div class="session-timeline-grid">
+                            <div class="session-history-column">
+                                <div class="section-label">Recent Sessions</div>
+                                <div id="session-history-list" class="session-history-list">
+                                    <div class="output-empty">No sessions recorded yet.</div>
+                                </div>
+                            </div>
+                            <div class="session-events-column">
+                                <div class="section-label">Timeline</div>
+                                <div id="session-timeline-events" class="session-timeline-events">
+                                    <div class="output-empty">Select a session to view its steps.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timeline-footer">
+                            <button class="btn btn-ghost btn-sm" id="download-session-btn" disabled>
+                                <i class="fas fa-download"></i> Download JSON
+                            </button>
+                        </div>
                     </div>
                     <!-- ===== TEST COLLECTIONS ===== -->
                     <div class="card" id="collections-card" style="margin-top: 20px;">
@@ -602,6 +697,45 @@
                         <button class="btn btn-primary btn-full" id="generate-code-btn">
                             <i class="fas fa-wand-magic-sparkles"></i> Generate Test Code
                         </button>
+                    </div>
+
+                    <div class="card hidden" id="explore-summary-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-compass"></i>
+                                Exploratory Summary
+                            </div>
+                        </div>
+                        <div class="output" id="explore-summary-output">
+                            <div class="output-empty">
+                                Exploration insights will appear after recording.
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-full" id="generate-explore-summary-btn">
+                            <i class="fas fa-lightbulb"></i> Generate AI Summary
+                        </button>
+                    </div>
+
+                    <div class="card hidden" id="bug-bundle-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-bug"></i>
+                                Bug Hunt Bundle
+                            </div>
+                        </div>
+                        <div class="output" id="bug-bundle-output">
+                            <div class="output-empty">
+                                Deep diagnostics will appear after recording.
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-primary btn-full" id="export-bug-bundle-btn">
+                                <i class="fas fa-file-export"></i> Export Bundle
+                            </button>
+                            <button class="btn btn-ghost btn-full" id="toggle-bug-video-btn">
+                                <i class="fas fa-video"></i> Video: Off
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Generated Code Output -->
