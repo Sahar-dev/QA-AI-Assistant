@@ -15,16 +15,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install --only=dev
-        continue-on-error: true # In case you don't have package.json yet
-
       - name: Validate manifest.json
         run: |
           echo "🔍 Validating manifest.json..."
@@ -55,13 +45,18 @@ jobs:
               sys.exit(1)
           EOF
 
-      - name: Lint JavaScript files
+      - name: Basic JavaScript syntax check
         run: |
-          if [ -f "package.json" ]; then
-            npm run lint || echo "⚠️ No lint script found, skipping..."
-          else
-            echo "⚠️ No package.json found, skipping lint..."
-          fi
+          echo "🔍 Checking JavaScript syntax..."
+          find . -name "*.js" -not -path "./node_modules/*" -not -path "./.git/*" | while read file; do
+            if node --check "$file" 2>/dev/null; then
+              echo "✅ $file"
+            else
+              echo "❌ Syntax error in: $file"
+              node --check "$file"
+              exit 1
+            fi
+          done
         continue-on-error: true
 
       - name: Check for TODO/FIXME comments
