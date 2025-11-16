@@ -620,12 +620,11 @@ select:focus {
 .btn-primary {
     background: var(--gradient-accent);
     color: white;
-    box-shadow: 0 10px 24px rgba(127, 0, 255, 0.20), 0 0 18px rgba(0, 234, 255, 0.20);
+    box-shadow: 0 5px 15px rgba(127, 0, 255, 0.20), 0 0 10px rgba(0, 234, 255, 0.20);
 }
 
 .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 16px 36px rgba(127, 0, 255, 0.25), 0 0 28px rgba(0, 234, 255, 0.28);
+    box-shadow: 0 10px 18px rgba(127, 0, 255, 0.25), 0 0 28px rgba(0, 234, 255, 0.28);
 }
 
 .btn-secondary {
@@ -2002,4 +2001,22 @@ button:disabled {
     font-weight: 600;
     font-size: 12px;
     text-transform: uppercase;
+}
+
+.help-section {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.help-section ul,
+.help-section ol {
+    padding-left: 20px;
+    margin: 0;
+}
+
+.help-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
 }
