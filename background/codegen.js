@@ -1,7 +1,14 @@
 import { generatePlaywrightTest } from './playwright.js'; // new file coming next
+import { generateSmartAssertions } from "./assertions.js";
+import { generateApiAssertions } from "./smartApiAssertions.js";
 
 export function generateTestFromEvents(framework, events = [], options = {}) {
     if (!events.length) return "// No recorded events found.";
+
+    // 🔍 DEBUG: Log all event types
+    console.log("📊 All captured events:", events);
+    console.log("📊 Event types:", events.map(e => e.type));
+    console.log("📊 Fetch events:", events.filter(e => e.type === "fetch"));
 
     const meta = events.metadata || {};
     const fw = framework?.toLowerCase() || "cypress";
@@ -14,14 +21,20 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
         includeScrolls: options.includeScrolls ?? false,
         ...options
     };
-
+    // 🔍 DEBUG: Log config
+    console.log("⚙️ Config:", config);
     // ===== 1. CLEAN & SORT =====
     let cleaned = events.filter(e => {
         if (!e || !e.type) return false;
+
+        // Don't filter out these important events
         if (['keydown', 'keyup', 'mouse_move'].includes(e.type)) return false;
 
         const selector = e.data?.selector || "";
         if (selector.startsWith("> body") || selector === "body") return false;
+
+        // ✅ ALWAYS keep fetch events (they don't have selectors)
+        if (e.type === "fetch") return true;
 
         return true;
     });
@@ -58,6 +71,13 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
         const next = merged[i + 1];
         const prev = optimized[optimized.length - 1];
 
+        // 🔥 CRITICAL: ALWAYS keep fetch events - they never get filtered
+        if (current.type === "fetch" || current.type === "fetch_error") {
+            console.log("✅ Preserving fetch event:", current.data?.url);
+            optimized.push(current);
+            continue;
+        }
+
         // Skip click on form field if next is input
         if (current.type === "click" &&
             next &&
@@ -87,25 +107,21 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
                 continue;
             }
         }
+
         // Skip background clicks on <html> or <body>
-        if (
-            current.type === "click" &&
-            /^(html|body)/i.test(current.data?.selector || "")
-        ) {
+        if (current.type === "click" &&
+            /^(html|body)/i.test(current.data?.selector || "")) {
             continue;
         }
 
         // Skip duplicate hovers on the same selector within 2 s
-        if (
-            current.type === "hover" &&
+        if (current.type === "hover" &&
             prev &&
             prev.type === "hover" &&
             prev.data?.selector === current.data?.selector &&
-            (current.t - prev.t) < 2000
-        ) {
+            (current.t - prev.t) < 2000) {
             continue;
         }
-
 
         // Skip hovers if option disabled
         if (current.type === "hover" && !config.includeHovers) {
@@ -119,7 +135,9 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
 
         optimized.push(current);
     }
-
+    console.log("✨ After optimization:", optimized.length, "events");
+    console.log("✨ Fetch events after optimization:", optimized.filter(e => e.type === "fetch"));
+    console.log("✨ All optimized event types:", optimized.map(e => e.type));
     // ===== 4. BUILD SELECTORS =====
     const getSelector = (ev) => {
         const s = ev.data?.selector || "";
@@ -332,6 +350,27 @@ export function generateTestFromEvents(framework, events = [], options = {}) {
                     lines.push(`    cy.wait('@apiRequest');`);
                 }
                 break;
+        }
+    }
+    // ----- SMART ASSERTIONS (NEW FEATURE) -----
+    if (config.includeAssertions) {
+        const smartAsserts = generateSmartAssertions(optimized);
+
+        if (smartAsserts.length) {
+            lines.push(`\n    // ----- Smart Assertions Generated Automatically -----`);
+            for (const a of smartAsserts) {
+                lines.push(`    ${a}`); // must include semicolon at end
+            }
+        }
+    }
+    if (config.includeNetworkCalls) {
+        const apiAsserts = generateApiAssertions(optimized);
+
+        if (apiAsserts.length) {
+            lines.push(`\n    // ----- Smart API Assertions Generated Automatically -----`);
+            for (const a of apiAsserts) {
+                lines.push(`    ${a}`);
+            }
         }
     }
 

@@ -148,6 +148,8 @@ export async function setupRecording() {
     });
 
     // Update the generateCodeBtn click handler:
+    // In recording-setup.js, update the generateCodeBtn handler:
+
     generateCodeBtn?.addEventListener("click", async () => {
         const framework = frameworkSelect?.value || "cypress";
         const codeCard = document.getElementById("code-output-card");
@@ -162,6 +164,20 @@ export async function setupRecording() {
             'includeScrolls'
         ]);
 
+        // 🔍 DEBUG: Check what preferences are loaded
+        console.log("📋 User preferences:", prefs);
+        console.log("🌐 Include Network?", prefs.includeNetwork);
+
+        const options = {
+            keepAllAttempts: prefs.keepAllAttempts ?? false,
+            includeNetworkCalls: prefs.includeNetwork ?? false,  // ← Make sure this is true!
+            includeAssertions: prefs.includeAssertions ?? true,
+            includeHovers: prefs.includeHovers ?? false,
+            includeScrolls: prefs.includeScrolls ?? false
+        };
+
+        console.log("🔧 Sending options:", options);
+
         codeCard.classList.remove("hidden");
         codeOutput.innerHTML = '<div class="loading"><div class="spinner"></div> Generating test code...</div>';
 
@@ -171,13 +187,7 @@ export async function setupRecording() {
                     {
                         action: "generateAutomatedTest",
                         framework,
-                        options: {
-                            keepAllAttempts: prefs.keepAllAttempts ?? false,
-                            includeNetworkCalls: prefs.includeNetwork ?? false,
-                            includeAssertions: prefs.includeAssertions ?? true,
-                            includeHovers: prefs.includeHovers ?? false,
-                            includeScrolls: prefs.includeScrolls ?? false
-                        }
+                        options  // ← Ensure this is passed
                     },
                     (res) => {
                         if (chrome.runtime.lastError) {

@@ -111,6 +111,8 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
         log("❌ Error in background router:", err);
         sendResponse({ success: false, error: err.message });
     }
+
+
     return true;
 });
 

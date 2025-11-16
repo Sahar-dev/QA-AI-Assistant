@@ -1,4 +1,7 @@
 // background/playwright.js
+import { generateSmartAssertions } from "./assertions.js";
+import { generateApiAssertions } from "./smartApiAssertions.js";
+
 export function generatePlaywrightTest(events = [], options = {}) {
     if (!events.length) return "// No recorded events found.";
 
@@ -152,6 +155,27 @@ export function generatePlaywrightTest(events = [], options = {}) {
 
             default:
                 break;
+        }
+    }
+    // ----- SMART ASSERTIONS (NEW FEATURE) -----
+    if (config.includeAssertions) {
+        const smartAsserts = generateSmartAssertions(optimized);
+
+        if (smartAsserts.length) {
+            lines.push(`\n  // ----- Smart Assertions Generated Automatically -----`);
+            for (const a of smartAsserts) {
+                lines.push(`  ${a}`);
+            }
+        }
+    }
+    if (config.includeNetworkCalls) {
+        const apiAsserts = generateApiAssertions(optimized);
+
+        if (apiAsserts.length) {
+            lines.push(`\n    // ----- Smart API Assertions Generated Automatically -----`);
+            for (const a of apiAsserts) {
+                lines.push(`    ${a}`);
+            }
         }
     }
 

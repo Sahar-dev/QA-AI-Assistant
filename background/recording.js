@@ -1,29 +1,9 @@
 import { log } from "./logger.js";
 import { recordedEvents, sessionBuffers, pushSessionEvent } from "./storage.js";
 
-async function ensureRecorderInjected(tabId) {
-    try {
-        const [{ result }] = await chrome.scripting.executeScript({
-            target: { tabId },
-            func: () => !!window.__qaRecorderInjected
-        });
-        if (result) return;
+// No need for ensureRecorderInjected anymore - it's auto-injected via content_scripts!
 
-        await chrome.scripting.executeScript({
-            target: { tabId },
-            files: ["recording/recorder.js"]
-        });
-        console.log("🧩 Recorder injected dynamically");
-    } catch (err) {
-        console.warn("Recorder injection failed:", err);
-    }
-}
-
-const SESSION_WINDOW_MS = 5 * 60 * 1000;
-let lastActivePageTab = null;
 let isRecording = false;
-
-// === Core Recording Logic ===
 let sessionId = null;
 
 export async function startRecordingSession(metadata = {}) {
@@ -31,26 +11,42 @@ export async function startRecordingSession(metadata = {}) {
     metadata.sessionId = sessionId;
     recordedEvents.length = 0;
     recordedEvents.metadata = metadata;
+    isRecording = true;
 
-    // Tell all active tabs to start listening
+    console.log("🎥 Starting recording session:", sessionId);
+
+    // Tell all active tabs to start listening (recorder is already injected)
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     for (const tab of tabs) {
-        await ensureRecorderInjected(tab.id);
-        await chrome.tabs.sendMessage(tab.id, { action: "startRecording" }).catch(() => { });
+        try {
+            await chrome.tabs.sendMessage(tab.id, {
+                action: "startRecording",
+                sessionId
+            });
+            console.log("✅ Recording started on tab:", tab.id);
+        } catch (err) {
+            console.warn("⚠️ Failed to start recording on tab:", tab.id, err);
+        }
     }
-
 
     return { success: true, sessionId };
 }
 
 export async function stopRecordingSession() {
-    log("🛑 Stopping manual recording session, total:", recordedEvents.length);
+    log("🛑 Stopping recording session, total events:", recordedEvents.length);
+    console.log("📊 Event types:", recordedEvents.map(e => e.type));
+    console.log("🌐 Fetch events:", recordedEvents.filter(e => e.type === "fetch"));
+
     isRecording = false;
 
     // Tell all tabs to stop
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     for (const tab of tabs) {
-        await chrome.tabs.sendMessage(tab.id, { action: "stopRecording" }).catch(() => { });
+        try {
+            await chrome.tabs.sendMessage(tab.id, { action: "stopRecording" });
+        } catch (err) {
+            console.warn("⚠️ Failed to stop recording on tab:", tab.id);
+        }
     }
 
     return { success: true, data: recordedEvents };
@@ -64,11 +60,14 @@ export function getRecordedEvents() {
     return recordedEvents;
 }
 
-// === Optional Modular Registration ===
 export function initRecordingHandlers() {
     chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
         switch (req.action) {
             case "recordEvent":
+                console.log("📥 Received event:", req.payload.type);
+                if (req.payload.type === 'fetch') {
+                    console.log("🌐 FETCH EVENT RECEIVED:", req.payload.data);
+                }
                 pushSessionEvent(sender.tab?.id, req.payload);
                 sendResponse({ success: true });
                 break;
@@ -92,4 +91,3 @@ export function initRecordingHandlers() {
     });
     log("🎧 Recording handlers initialized");
 }
-

@@ -11,7 +11,7 @@ import { setupSettings, loadSettings } from "./ui/settings.js";
 import { loadSavedTests } from "./ui/saved-tests.js";
 import { setupAnalysis } from "./ui/analysis.js";
 import { copyToClipboard, showToast } from "./core/utils.js";
-
+import { setupTestData } from "./ui/test-data.js";
 window.loadSavedTests = loadSavedTests;
 import { setupAccessibilityAudit } from "./ui/accessibility.js";
 
@@ -32,6 +32,7 @@ async function initApp() {
         setupAnalysis();
         setupTestData();
         setupBugReports();
+
         setupAccessibilityAudit();
         setupRecording();
         setupCollections();
@@ -125,12 +126,6 @@ Buttons: ${data.buttons?.join(", ") || "None"}`;
     }
 }
 
-// =============================
-// ===== TEST DATA =====
-// =============================
-function setupTestData() {
-    // placeholder for any future logic
-}
 
 // =============================
 // ===== GLOBAL STYLE FIXES =====

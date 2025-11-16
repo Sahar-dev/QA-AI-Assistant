@@ -9,7 +9,6 @@
         "storage",
         "scripting",
         "tabs",
-        "activeTab",
         "webNavigation",
         "identity",
         "background",
@@ -49,11 +48,10 @@
                 "<all_urls>"
             ],
             "js": [
-                "recording/recorder.js",
-                "content.js"
+                "recording/recorder.js"
             ],
-            "all_frames": true,
-            "run_at": "document_start"
+            "run_at": "document_start",
+            "all_frames": false
         }
     ],
     "icons": {
@@ -69,7 +67,7 @@
                 "sidebar.js",
                 "replay-viewer.js",
                 "timeline-view.js",
-                "recording/*",
+                "recording/recorder-injected.js",
                 "ui/*",
                 "core/*"
             ],
